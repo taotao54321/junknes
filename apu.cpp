@@ -627,9 +627,10 @@ void Apu::Square::genSound(int timestamp)
         soundPos_ = timestamp;
     }
     else{
-        uint8_t amp = envelope_.constant ? envelope_.volume : envelope_.decay_level;
+        uint8_t amp = 2 * (envelope_.constant ? envelope_.volume
+                                              : envelope_.decay_level); // [0,30]
         for(; soundPos_ < timestamp; ++soundPos_){
-            sound_[soundPos_] = 2 * amp * SQ_DUTIES[duty_][step_]; // [0,30]
+            sound_[soundPos_] = amp * SQ_DUTIES[duty_][step_];
             if(!timer_){
                 timer_ = 2*timerReg_.raw + 1; // 周期はCPUサイクル単位で 2*(t+1) だから…
                 step_ = (step_+1) & 7;
