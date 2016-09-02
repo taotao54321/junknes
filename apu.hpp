@@ -111,7 +111,6 @@ private:
         Envelope envelope_;
         struct Sweep{
             bool enabled;
-            bool reload;
             std::uint8_t divider;
             std::uint8_t divider_reg;
             bool nega;

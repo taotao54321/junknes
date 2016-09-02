@@ -112,7 +112,10 @@ void Apu::Square::hardReset()
     envelope_.volume      = 0;
     envelope_.decay_level = 0;
 
-    
+    sweep_.divider     = 0; // FCEUXは static 初期化に頼ってる
+    sweep_.divider_reg = 0;
+    sweep_.nega        = 0;
+    sweep_.shift       = 0;
 
     softReset();
 }
@@ -128,6 +131,9 @@ void Apu::Square::softReset()
 
     timerReg_.raw = 0;
     length_ = 0;
+
+    sweep_.enabled = false;
+
     // FCEUXはハードリセットでもシーケンサのステップ数を初期化していな
     // い(static 変数なのでエミュレータ起動時の初期値は0)が、少なくと
     // もハードリセット時の値は固定にしたい
