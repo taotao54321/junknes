@@ -46,11 +46,13 @@ public:
 
     using SoundSq  = std::tuple<const std::uint8_t*, int>;
     using SoundTri = std::tuple<const std::uint8_t*, int>;
+    using SoundNoi = std::tuple<const std::uint8_t*, int>;
     void startFrame();
     void endFrame();
     SoundSq  soundSq1() const;
     SoundSq  soundSq2() const;
     SoundTri soundTri() const;
+    SoundNoi soundNoi() const;
 
 private:
     void updateStep();
@@ -92,8 +94,8 @@ private:
             std::uint16_t raw;
             explicit TimerReg(std::uint16_t value=0) : raw(value) {}
             TimerReg& operator=(const TimerReg& rhs) { raw = rhs.raw; return *this; }
-            BitField16<0,8>  lo;
-            BitField16<8,3>  hi;
+            BitField16<0,8> lo;
+            BitField16<8,3> hi;
         };
         TimerReg timerReg_;
 
@@ -149,8 +151,8 @@ private:
             std::uint16_t raw;
             explicit TimerReg(std::uint16_t value=0) : raw(value) {}
             TimerReg& operator=(const TimerReg& rhs) { raw = rhs.raw; return *this; }
-            BitField16<0,8>  lo;
-            BitField16<8,3>  hi;
+            BitField16<0,8> lo;
+            BitField16<8,3> hi;
         };
         TimerReg timerReg_;
 
@@ -171,6 +173,50 @@ private:
     };
     Triangle tri_;
 
+    class Noise{
+    public:
+        void hardReset();
+        void softReset();
+        void enable(bool enabled, int timestamp);
+        bool isActive() const;
+        void frameQuarter();
+        void frameHalf();
+        void write400C(std::uint8_t value, int timestamp);
+        void write400E(std::uint8_t value, int timestamp);
+        void write400F(std::uint8_t value, int timestamp);
+
+        void startFrame();
+        void genSound(int timestamp);
+        SoundNoi sound() const;
+    private:
+        bool enabled_;
+        unsigned int timer_;
+        unsigned int timerReg_; // $400E bit3-0
+        std::uint8_t length_;
+        bool lengthHalt_;
+        struct Envelope{
+            bool start;
+            bool loop;
+            bool constant;
+            std::uint8_t divider;
+            std::uint8_t divider_reg;
+            std::uint8_t volume; // constant volume
+            std::uint8_t decay_level;
+        };
+        Envelope envelope_;
+
+        struct Lfsr{
+            bool mode_short;
+            unsigned int reg;
+            void shift();
+        };
+        Lfsr lfsr_;
+
+        std::array<std::uint8_t, 40000> sound_;
+        int soundPos_; // CPU cycle
+    };
+    Noise noi_;
+
     /**
      * フレームカウンタ
      * step間のサイクル数は一定と近似している(FCEUXと同じ)
@@ -190,7 +236,7 @@ private:
         BitField8<0> sq1;
         BitField8<1> sq2;
         BitField8<2> tri;
-        BitField8<3> noise;
+        BitField8<3> noi;
         BitField8<4> dmc;
         BitField8<6> frame_irq;
         BitField8<7> dmc_irq;

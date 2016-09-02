@@ -38,3 +38,4 @@ auto Nes::screen() const -> const Screen& { return mapper_.screen(); }
 auto Nes::soundSq1() const -> SoundSq  { return mapper_.soundSq1(); }
 auto Nes::soundSq2() const -> SoundSq  { return mapper_.soundSq2(); }
 auto Nes::soundTri() const -> SoundTri { return mapper_.soundTri(); }
+auto Nes::soundNoi() const -> SoundNoi { return mapper_.soundNoi(); }

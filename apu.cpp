@@ -30,6 +30,7 @@ void Apu::hardReset()
     sq1_.hardReset();
     sq2_.hardReset();
     tri_.hardReset();
+    noi_.hardReset();
 
     nextStep_   = 0;          // FCEUXに合わせたが正しいのだろうか(初期stepは3になる)
     restCycle_  = STEP_CYCLE;
@@ -42,6 +43,7 @@ void Apu::softReset()
     sq1_.softReset();
     sq2_.softReset();
     tri_.softReset();
+    noi_.softReset();
 
     nextStep_   = 0;
     restCycle_  = STEP_CYCLE;
@@ -64,6 +66,7 @@ void Apu::updateStep()
     sq1_.genSound(soundTimestamp_);
     sq2_.genSound(soundTimestamp_);
     tri_.genSound(soundTimestamp_);
+    noi_.genSound(soundTimestamp_);
 
     if(frameIrqOn_ && nextStep_ == 0 && !step5_){
         frameIrqOn_ = false;
@@ -86,6 +89,7 @@ void Apu::frameQuarter()
     sq1_.frameQuarter();
     sq2_.frameQuarter();
     tri_.frameQuarter();
+    noi_.frameQuarter();
 }
 
 // length counter, sweep
@@ -94,6 +98,7 @@ void Apu::frameHalf()
     sq1_.frameHalf();
     sq2_.frameHalf();
     tri_.frameHalf();
+    noi_.frameHalf();
 }
 
 
@@ -344,6 +349,113 @@ void Apu::Triangle::write400B(uint8_t value, int timestamp)
 }
 
 
+void Apu::Noise::hardReset()
+{
+    timerReg_ = 0;
+    lengthHalt_ = false;
+
+    envelope_.start       = false;
+    envelope_.loop        = false;
+    envelope_.constant    = false;
+    envelope_.divider     = 0;
+    envelope_.divider_reg = 0;
+    envelope_.volume      = 0;
+    envelope_.decay_level = 0;
+
+    lfsr_.mode_short = false;
+
+    softReset();
+}
+
+void Apu::Noise::softReset()
+{
+    enabled_ = false;
+
+    // FCEUXの真似だがソース不明
+    // なお、FCEUXはタイマ値が1から0になるときシーケンサのステップを進
+    // めるので値が1ずれて 0x800 になっている
+    timer_ = 0x7FF;
+
+    length_ = 0;
+
+    lfsr_.reg = 0x4000; // FCEUXに合わせた(FCEUXはビット逆順)。NesDevWikiでは起動時1となってる
+}
+
+void Apu::Noise::enable(bool enabled, int timestamp)
+{
+    genSound(timestamp);
+
+    if(!enabled)
+        length_ = 0;
+
+    enabled_ = enabled;
+}
+
+bool Apu::Noise::isActive() const
+{
+    return length_;
+}
+
+// envelope
+void Apu::Noise::frameQuarter()
+{
+    if(envelope_.start){
+        envelope_.start = false;
+        envelope_.decay_level = 0xF;
+        envelope_.divider = envelope_.divider_reg;
+    }
+    else{
+        if(!envelope_.divider){
+            envelope_.divider = envelope_.divider_reg;
+            if(envelope_.decay_level){
+                --envelope_.decay_level;
+            }
+            else if(envelope_.loop){
+                envelope_.decay_level = 0xF;
+            }
+        }
+        else{
+            --envelope_.divider;
+        }
+    }
+}
+
+// length counter
+void Apu::Noise::frameHalf()
+{
+    if(!lengthHalt_ && length_)
+        --length_;
+}
+
+void Apu::Noise::write400C(uint8_t value, int timestamp)
+{
+    // パラメータが変わるのでここまでの音声データを出力
+    genSound(timestamp);
+
+    lengthHalt_ = envelope_.loop             = value & 0x20;
+    envelope_.constant                       = value & 0x10;
+    envelope_.volume = envelope_.divider_reg = value & 0x0F;
+}
+
+void Apu::Noise::write400E(uint8_t value, int timestamp)
+{
+    genSound(timestamp);
+
+    lfsr_.mode_short = value & 0x80;
+    timerReg_        = value & 0x0F;
+}
+
+void Apu::Noise::write400F(uint8_t value, int timestamp)
+{
+    genSound(timestamp);
+
+    if(enabled_)
+        length_ = LENGTH_TABLE[value>>3];
+
+    envelope_.start = true;
+}
+
+
 uint8_t Apu::read4015()
 {
     Status st;
@@ -351,6 +463,7 @@ uint8_t Apu::read4015()
     st.sq1 = sq1_.isActive();
     st.sq2 = sq2_.isActive();
     st.tri = tri_.isActive();
+    st.noi = noi_.isActive();
     st.frame_irq = frameIrqOn_;
 
     frameIrqOn_ = false;
@@ -360,79 +473,23 @@ uint8_t Apu::read4015()
 }
 
 
-void Apu::write4000(uint8_t value)
-{
-    sq1_.write4000or4004(value, soundTimestamp_);
-}
+void Apu::write4000(uint8_t value) { sq1_.write4000or4004(value, soundTimestamp_); }
+void Apu::write4001(uint8_t value) { sq1_.write4001or4005(value, soundTimestamp_); }
+void Apu::write4002(uint8_t value) { sq1_.write4002or4006(value, soundTimestamp_); }
+void Apu::write4003(uint8_t value) { sq1_.write4003or4007(value, soundTimestamp_); }
 
-void Apu::write4001(uint8_t value)
-{
-    sq1_.write4001or4005(value, soundTimestamp_);
-}
+void Apu::write4004(uint8_t value) { sq2_.write4000or4004(value, soundTimestamp_); }
+void Apu::write4005(uint8_t value) { sq2_.write4001or4005(value, soundTimestamp_); }
+void Apu::write4006(uint8_t value) { sq2_.write4002or4006(value, soundTimestamp_); }
+void Apu::write4007(uint8_t value) { sq2_.write4003or4007(value, soundTimestamp_); }
 
-void Apu::write4002(uint8_t value)
-{
-    sq1_.write4002or4006(value, soundTimestamp_);
-}
+void Apu::write4008(uint8_t value) { tri_.write4008(value, soundTimestamp_); }
+void Apu::write400A(uint8_t value) { tri_.write400A(value, soundTimestamp_); }
+void Apu::write400B(uint8_t value) { tri_.write400B(value, soundTimestamp_); }
 
-void Apu::write4003(uint8_t value)
-{
-    sq1_.write4003or4007(value, soundTimestamp_);
-}
-
-
-void Apu::write4004(uint8_t value)
-{
-    sq2_.write4000or4004(value, soundTimestamp_);
-}
-
-void Apu::write4005(uint8_t value)
-{
-    sq2_.write4001or4005(value, soundTimestamp_);
-}
-
-void Apu::write4006(uint8_t value)
-{
-    sq2_.write4002or4006(value, soundTimestamp_);
-}
-
-void Apu::write4007(uint8_t value)
-{
-    sq2_.write4003or4007(value, soundTimestamp_);
-}
-
-
-void Apu::write4008(uint8_t value)
-{
-    tri_.write4008(value, soundTimestamp_);
-}
-
-void Apu::write400A(uint8_t value)
-{
-    tri_.write400A(value, soundTimestamp_);
-}
-
-void Apu::write400B(uint8_t value)
-{
-    tri_.write400B(value, soundTimestamp_);
-}
-
-void Apu::write400C(uint8_t value)
-{
-
-}
-
-
-void Apu::write400E(uint8_t value)
-{
-
-}
-
-void Apu::write400F(uint8_t value)
-{
-
-}
-
+void Apu::write400C(uint8_t value) { noi_.write400C(value, soundTimestamp_); }
+void Apu::write400E(uint8_t value) { noi_.write400E(value, soundTimestamp_); }
+void Apu::write400F(uint8_t value) { noi_.write400F(value, soundTimestamp_); }
 
 void Apu::write4010(uint8_t value)
 {
@@ -462,6 +519,7 @@ void Apu::write4015(uint8_t value)
     sq1_.enable(st.sq1, soundTimestamp_);
     sq2_.enable(st.sq2, soundTimestamp_);
     tri_.enable(st.tri, soundTimestamp_);
+    noi_.enable(st.noi, soundTimestamp_);
 }
 
 void Apu::write4017(uint8_t value)
@@ -493,6 +551,7 @@ void Apu::startFrame()
     sq1_.startFrame();
     sq2_.startFrame();
     tri_.startFrame();
+    noi_.startFrame();
 }
 
 void Apu::endFrame()
@@ -501,6 +560,7 @@ void Apu::endFrame()
     sq1_.genSound(soundTimestamp_);
     sq2_.genSound(soundTimestamp_);
     tri_.genSound(soundTimestamp_);
+    noi_.genSound(soundTimestamp_);
 }
 
 auto Apu::soundSq1() const -> Apu::SoundSq
@@ -516,6 +576,11 @@ auto Apu::soundSq2() const -> Apu::SoundSq
 auto Apu::soundTri() const -> Apu::SoundTri
 {
     return tri_.sound();
+}
+
+auto Apu::soundNoi() const -> Apu::SoundNoi
+{
+    return noi_.sound();
 }
 
 
@@ -624,3 +689,55 @@ void Apu::Triangle::genSound(int timestamp)
         soundPos_ = timestamp;
     }
 }
+
+
+void Apu::Noise::startFrame()
+{
+    soundPos_ = 0;
+}
+
+auto Apu::Noise::sound() const -> SoundNoi
+{
+    return SoundNoi(sound_.data(), soundPos_);
+}
+
+void Apu::Noise::Lfsr::shift()
+{
+    int shift = mode_short ? 6 : 1;
+    unsigned int bit = (reg ^ (reg>>shift)) & 1;
+    reg >>= 1;
+    reg |= bit << 14;
+}
+
+namespace{
+    constexpr unsigned int NOI_P_TABLE[0x10] = {
+          4,   8,  16,  32,  64,   96,  128,  160,
+        202, 254, 380, 508, 762, 1016, 2034, 4068
+    };
+}
+
+void Apu::Noise::genSound(int timestamp)
+{
+    assert(soundPos_ <= timestamp);
+
+    uint8_t amp = 2 * (envelope_.constant ? envelope_.volume : envelope_.decay_level); // [0,30]
+
+    // length counterが0であってもタイマは回さなければならないらしい
+    // (FCEUXを読む限りでは)
+    uint8_t out = (lfsr_.reg&1) ? 15 : amp;
+    for(; soundPos_ < timestamp; ++soundPos_){
+        sound_[soundPos_] = length_ ? out : 15;
+        // FCEUXではタイマが1->0のときにLFSRを更新してるけど、これだと
+        // 周期が1ずれるんじゃないかな…
+        if(!timer_){
+            timer_ = NOI_P_TABLE[timerReg_];
+            lfsr_.shift();
+            out = (lfsr_.reg&1) ? 15 : amp;
+        }
+        else{
+            --timer_;
+        }
+    }
+}
+
+
