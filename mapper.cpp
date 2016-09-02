@@ -180,6 +180,7 @@ auto Mapper::screen() const -> const Screen&
 auto Mapper::soundSq1() const -> SoundSq  { return apu_.soundSq1(); }
 auto Mapper::soundSq2() const -> SoundSq  { return apu_.soundSq2(); }
 auto Mapper::soundTri() const -> SoundTri { return apu_.soundTri(); }
+auto Mapper::soundNoi() const -> SoundNoi { return apu_.soundNoi(); }
 
 
 void Mapper::triggerNmi() { cpu_.triggerNmi(); }

@@ -127,9 +127,11 @@ namespace{
     void audio_push(
         const Nes::SoundSq&  sound_sq1,
         const Nes::SoundSq&  sound_sq2,
-        const Nes::SoundTri& sound_tri)
+        const Nes::SoundTri& sound_tri,
+        const Nes::SoundNoi& sound_noi)
     {
-        assert(allequal(get<1>(sound_sq1), get<1>(sound_sq2), get<1>(sound_tri)));
+        assert(allequal(
+            get<1>(sound_sq1), get<1>(sound_sq2), get<1>(sound_tri), get<1>(sound_noi)));
 
         // CPU周波数とサンプリング周波数が異なるので、1F内では全ての
         // データを処理できず余りが出る。offset 変数でそのズレを管理
@@ -150,11 +152,13 @@ namespace{
         while(n_written < n_sample){
             int pos_int = static_cast<int>(pos);
             // TODO: まともなmixerを書く
-            uint8_t data = get<0>(sound_sq1)[pos_int] +
-                           get<0>(sound_sq2)[pos_int] +
-                           get<0>(sound_tri)[pos_int];
-            //INFO("%d\n", data-15);
-            uint16_t sample = 300 * (data-15);
+            int data = 0;
+            data += get<0>(sound_sq1)[pos_int] - 15;
+            data += get<0>(sound_sq2)[pos_int] - 15;
+            data += get<0>(sound_tri)[pos_int] - 15;
+            data += get<0>(sound_noi)[pos_int] - 15;
+            //INFO("%d\n", data);
+            int16_t sample = 300 * data;
             if(audio_queue.push(sample)){
                 ++n_written;
                 pos += STEP;
@@ -285,7 +289,7 @@ int main(int argc, char** argv)
 
         nes.emulateFrame();
 
-        audio_push(nes.soundSq1(), nes.soundSq2(), nes.soundTri());
+        audio_push(nes.soundSq1(), nes.soundSq2(), nes.soundTri(), nes.soundNoi());
 
         draw(tex, nes.screen());
 
@@ -294,7 +298,7 @@ int main(int argc, char** argv)
         SDL_RenderPresent(ren);
 
         // TODO: まともなウェイト処理
-        SDL_Delay(8);
+        SDL_Delay(7);
 
         ++frame;
         if(frame == 1000){

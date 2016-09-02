@@ -44,9 +44,11 @@ public:
 
     using SoundSq  = Apu::SoundSq;
     using SoundTri = Apu::SoundTri;
+    using SoundNoi = Apu::SoundNoi;
     SoundSq  soundSq1() const;
     SoundSq  soundSq2() const;
     SoundTri soundTri() const;
+    SoundNoi soundNoi() const;
 
 private:
     void initRW();
