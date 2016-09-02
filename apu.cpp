@@ -166,20 +166,20 @@ void Apu::Square::frameQuarter()
     if(envelope_.start){
         envelope_.start = false;
         envelope_.decay_level = 0xF;
-        envelope_.divider = envelope_.divider_reg + 1; // FCEUXに合わせたけど、+1は必要ないような?
+        envelope_.divider = envelope_.divider_reg;
     }
     else{
-        if(envelope_.divider){
-            --envelope_.divider;
-        }
-        else{
-            envelope_.divider = envelope_.divider_reg + 1; // +1 って必要なの?
+        if(!envelope_.divider){
+            envelope_.divider = envelope_.divider_reg;
             if(envelope_.decay_level){
                 --envelope_.decay_level;
             }
             else if(envelope_.loop){
                 envelope_.decay_level = 0xF;
             }
+        }
+        else{
+            --envelope_.divider;
         }
     }
 }
