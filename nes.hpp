@@ -36,10 +36,12 @@ public:
     using SoundSq  = Mapper::SoundSq;
     using SoundTri = Mapper::SoundTri;
     using SoundNoi = Mapper::SoundNoi;
+    using SoundDmc = Mapper::SoundDmc;
     SoundSq  soundSq1() const;
     SoundSq  soundSq2() const;
     SoundTri soundTri() const;
     SoundNoi soundNoi() const;
+    SoundDmc soundDmc() const;
 
 private:
     Mapper mapper_;

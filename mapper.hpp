@@ -45,10 +45,12 @@ public:
     using SoundSq  = Apu::SoundSq;
     using SoundTri = Apu::SoundTri;
     using SoundNoi = Apu::SoundNoi;
+    using SoundDmc = Apu::SoundDmc;
     SoundSq  soundSq1() const;
     SoundSq  soundSq2() const;
     SoundTri soundTri() const;
     SoundNoi soundNoi() const;
+    SoundDmc soundDmc() const;
 
 private:
     void initRW();
@@ -161,7 +163,9 @@ private:
     class ApuDoor : public Apu::Door{
     public:
         explicit ApuDoor(Mapper& mapper);
-        void triggerIrq() override;
+        std::uint8_t readDmc(std::uint16_t addr) override;
+        void triggerDmcIrq() override;
+        void triggerFrameIrq() override;
     private:
         Mapper& mapper_;
     };

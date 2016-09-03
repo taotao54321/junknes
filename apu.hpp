@@ -12,7 +12,9 @@ public:
     class Door{
     public:
         virtual ~Door();
-        virtual void triggerIrq() = 0;
+        virtual std::uint8_t readDmc(std::uint16_t addr) = 0;
+        virtual void triggerDmcIrq() = 0;
+        virtual void triggerFrameIrq() = 0;
     };
 
     explicit Apu(const std::shared_ptr<Door>& door);
@@ -47,12 +49,14 @@ public:
     using SoundSq  = std::tuple<const std::uint8_t*, int>;
     using SoundTri = std::tuple<const std::uint8_t*, int>;
     using SoundNoi = std::tuple<const std::uint8_t*, int>;
+    using SoundDmc = std::tuple<const std::uint8_t*, int>;
     void startFrame();
     void endFrame();
     SoundSq  soundSq1() const;
     SoundSq  soundSq2() const;
     SoundTri soundTri() const;
     SoundNoi soundNoi() const;
+    SoundDmc soundDmc() const;
 
 private:
     void updateStep();
@@ -121,7 +125,7 @@ private:
         Sweep sweep_;
         unsigned int step_; // シーケンサのステップ(下位3bitを見る。[0,7], increment)
 
-        std::array<std::uint8_t, 40000> sound_;
+        std::array<std::uint8_t, 40000> sound_; // 各要素は [0,15]
         int soundPos_; // CPU cycle
     };
     Square sq1_, sq2_;
@@ -168,7 +172,7 @@ private:
         // CPUサイクルごとに生の出力データを記録するだけ。1FはCPUサイ
         // クルに換算すると30000弱だから、40000あればDMAなどで多少ずれ
         // ても絶対足りるはず(数値自体はFCEUXのパクリ)。
-        std::array<std::uint8_t, 40000> sound_;
+        std::array<std::uint8_t, 40000> sound_; // 各要素は [0,15]
         int soundPos_; // CPU cycle
     };
     Triangle tri_;
@@ -212,10 +216,58 @@ private:
         };
         Lfsr lfsr_;
 
-        std::array<std::uint8_t, 40000> sound_;
+        std::array<std::uint8_t, 40000> sound_; // 各要素は [0,15]
         int soundPos_; // CPU cycle
     };
     Noise noi_;
+
+    class Dmc{
+    public:
+        explicit Dmc(const std::shared_ptr<Door>& door);
+        void hardReset();
+        void softReset();
+        void enable(bool enabled, int timestamp);
+        bool isActive() const;
+        bool irqEnabled() const;
+        void tick(int cycle, int sound_timestamp);
+        void write4010(std::uint8_t value, int timestamp);
+        void write4011(std::uint8_t value, int timestamp);
+        void write4012(std::uint8_t value, int timestamp);
+        void write4013(std::uint8_t value, int timestamp);
+
+        void startFrame();
+        void genSound(int timestamp);
+        SoundDmc sound() const;
+    private:
+        const std::shared_ptr<Door>& door_;
+
+        bool irq_;
+        bool loop_;
+        unsigned int periodReg_; // $4010 bit3-0
+        struct Reader{
+            std::uint8_t addr_reg; // $4012
+            std::uint8_t size_reg; // $4013
+            unsigned int addr; // [0x8000,0xFFFF]
+            unsigned int size; // [0,0xFF1]
+            std::uint8_t sample;
+            bool has_sample;
+        } reader_;
+        struct Output{
+            std::uint8_t level;
+            std::uint8_t reg; // シフトレジスタ
+            unsigned int rest_bits; // 残りbit数 [0,8]
+        } out_;
+
+        // CPUとの同期管理用。単位はCPUサイクル
+        // 0:CPUと同期(何もしない)
+        // 正:CPUより進んでいる(追いつかれるまで何もしない)
+        // 負:CPUより遅れている(追いつくまでDMCを回す)
+        int timestamp_;
+
+        std::array<std::uint8_t, 40000> sound_; // 各要素は [0,127]
+        int soundPos_; // CPU cycle
+    };
+    Dmc dmc_;
 
     /**
      * フレームカウンタ
@@ -242,5 +294,7 @@ private:
         BitField8<7> dmc_irq;
     };
 
+    // CPUとの同期管理用
+    // 1F内でのCPUサイクル
     int soundTimestamp_;
 };

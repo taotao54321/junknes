@@ -20,7 +20,7 @@ Apu::Door::~Door() {}
 
 Apu::Apu(const shared_ptr<Door>& door)
     : door_(door),
-      sq1_(Square(Square::Ch::SQ1)), sq2_(Square(Square::Ch::SQ2))
+      sq1_(Square(Square::Ch::SQ1)), sq2_(Square(Square::Ch::SQ2)), dmc_(door_)
 {
     
 }
@@ -31,6 +31,7 @@ void Apu::hardReset()
     sq2_.hardReset();
     tri_.hardReset();
     noi_.hardReset();
+    dmc_.hardReset();
 
     nextStep_   = 0;          // FCEUXに合わせたが正しいのだろうか(初期stepは3になる)
     restCycle_  = STEP_CYCLE;
@@ -44,6 +45,7 @@ void Apu::softReset()
     sq2_.softReset();
     tri_.softReset();
     noi_.softReset();
+    dmc_.softReset();
 
     nextStep_   = 0;
     restCycle_  = STEP_CYCLE;
@@ -56,13 +58,14 @@ void Apu::tick(int cycle)
     restCycle_ -= 48 * cycle;
     if(restCycle_ <= 0) updateStep();
 
+    dmc_.tick(cycle, soundTimestamp_);
+
     soundTimestamp_ += cycle;
 }
 
 
 void Apu::updateStep()
 {
-    // TODO: 他のチャネルも...
     sq1_.genSound(soundTimestamp_);
     sq2_.genSound(soundTimestamp_);
     tri_.genSound(soundTimestamp_);
@@ -70,7 +73,7 @@ void Apu::updateStep()
 
     if(frameIrqOn_ && nextStep_ == 0 && !step5_){
         frameIrqOn_ = false;
-        door_->triggerIrq();
+        door_->triggerFrameIrq();
     }
 
     frameQuarter();
@@ -456,15 +459,158 @@ void Apu::Noise::write400F(uint8_t value, int timestamp)
 }
 
 
+Apu::Dmc::Dmc(const shared_ptr<Door>& door) : door_(door) {}
+
+void Apu::Dmc::hardReset()
+{
+    
+
+    softReset();
+}
+
+void Apu::Dmc::softReset()
+{
+    irq_ = false;
+    loop_ = false;
+    periodReg_ = 0;
+
+    reader_.addr_reg = 0;
+    reader_.size_reg = 0;
+    reader_.addr = 0;
+    reader_.size = 0;
+    reader_.has_sample = false;
+
+    out_.level = 0;
+    out_.reg = 0;
+    out_.rest_bits = 0;
+
+    timestamp_ = 0;
+}
+
+void Apu::Dmc::enable(bool enabled, int timestamp)
+{
+    genSound(timestamp);
+
+    if(enabled){
+        if(!reader_.size){
+            // TODO: ここは tick() と共通のコードなので関数化
+            reader_.addr = 0xC000 + (reader_.addr_reg<<6);
+            reader_.size = (reader_.size_reg<<4) + 1;
+        }
+    }
+    else{
+        reader_.size = 0;
+    }
+
+    irq_ = false;
+}
+
+bool Apu::Dmc::isActive() const
+{
+    return reader_.size;
+}
+
+bool Apu::Dmc::irqEnabled() const
+{
+    return irq_;
+}
+
+namespace{
+    constexpr unsigned int DMC_PERIOD_TABLE[0x10] = {
+        428, 380, 340, 320, 286, 254, 226, 214,
+        190, 160, 142, 128, 106,  84,  72,  54
+    };
+}
+
+void Apu::Dmc::tick(int cycle, int sound_timestamp)
+{
+    // DMA
+    if(reader_.size && !reader_.has_sample){
+        reader_.sample = door_->readDmc(reader_.addr);
+        reader_.has_sample = true;
+        reader_.addr = reader_.addr==0xFFFF ? 0x8000 : reader_.addr+1;
+        --reader_.size;
+        if(!reader_.size){
+            if(loop_){
+                // TODO: この部分は関数化
+                reader_.addr = 0xC000 + (reader_.addr_reg<<6);
+                reader_.size = (reader_.size_reg<<4) + 1;
+            }
+            else{
+                if(irq_) door_->triggerDmcIrq();
+            }
+        }
+    }
+
+    timestamp_ -= cycle;
+    while(timestamp_ < 0){
+        if(out_.rest_bits){
+            genSound(sound_timestamp + timestamp_); // CPUに対する遅れを補正
+
+            bool bit = out_.reg & 1;
+            if(bit && out_.level <= 0x7D)
+                out_.level += 2;
+            else if(!bit && 2 <= out_.level)
+                out_.level -= 2;
+
+            --out_.rest_bits;
+            out_.reg >>= 1;
+        }
+        else{
+            if(reader_.has_sample){
+                out_.reg = reader_.sample;
+                out_.rest_bits = 8;
+                reader_.has_sample = false;
+            }
+        }
+
+        timestamp_ += DMC_PERIOD_TABLE[periodReg_];
+    }
+}
+
+void Apu::Dmc::write4010(uint8_t value, int timestamp)
+{
+    genSound(timestamp);
+
+    if(irq_){
+        if(value & 0x80)
+            door_->triggerDmcIrq();
+        else
+            irq_ = false;
+    }
+
+    loop_      = value & 0x40;
+    periodReg_ = value & 0x0F;
+}
+
+void Apu::Dmc::write4011(uint8_t value, int timestamp)
+{
+    genSound(timestamp);
+
+    out_.level = value & 0x7F;
+}
+
+void Apu::Dmc::write4012(uint8_t value, int /*timestamp*/)
+{
+    reader_.addr_reg = value;
+}
+
+void Apu::Dmc::write4013(uint8_t value, int /*timestamp*/)
+{
+    reader_.size_reg = value;
+}
+
+
 uint8_t Apu::read4015()
 {
     Status st;
-    // TODO: 他のチャネルも...
-    st.sq1 = sq1_.isActive();
-    st.sq2 = sq2_.isActive();
-    st.tri = tri_.isActive();
-    st.noi = noi_.isActive();
+    st.sq1       = sq1_.isActive();
+    st.sq2       = sq2_.isActive();
+    st.tri       = tri_.isActive();
+    st.noi       = noi_.isActive();
+    st.dmc       = dmc_.isActive();
     st.frame_irq = frameIrqOn_;
+    st.dmc_irq   = dmc_.irqEnabled();
 
     frameIrqOn_ = false;
     // TODO: FCEUXみたいに実際のIRQ解除もすべき?
@@ -491,35 +637,20 @@ void Apu::write400C(uint8_t value) { noi_.write400C(value, soundTimestamp_); }
 void Apu::write400E(uint8_t value) { noi_.write400E(value, soundTimestamp_); }
 void Apu::write400F(uint8_t value) { noi_.write400F(value, soundTimestamp_); }
 
-void Apu::write4010(uint8_t value)
-{
-
-}
-
-void Apu::write4011(uint8_t value)
-{
-
-}
-
-void Apu::write4012(uint8_t value)
-{
-
-}
-
-void Apu::write4013(uint8_t value)
-{
-
-}
+void Apu::write4010(uint8_t value) { dmc_.write4010(value, soundTimestamp_); }
+void Apu::write4011(uint8_t value) { dmc_.write4011(value, soundTimestamp_); }
+void Apu::write4012(uint8_t value) { dmc_.write4012(value, soundTimestamp_); }
+void Apu::write4013(uint8_t value) { dmc_.write4013(value, soundTimestamp_); }
 
 
 void Apu::write4015(uint8_t value)
 {
     Status st(value);
-    // TODO: 他のチャネルも...
     sq1_.enable(st.sq1, soundTimestamp_);
     sq2_.enable(st.sq2, soundTimestamp_);
     tri_.enable(st.tri, soundTimestamp_);
     noi_.enable(st.noi, soundTimestamp_);
+    dmc_.enable(st.dmc, soundTimestamp_);
 }
 
 void Apu::write4017(uint8_t value)
@@ -547,20 +678,20 @@ void Apu::write4017(uint8_t value)
 void Apu::startFrame()
 {
     soundTimestamp_ = 0;
-    // TODO: 他のチャネルも...
     sq1_.startFrame();
     sq2_.startFrame();
     tri_.startFrame();
     noi_.startFrame();
+    dmc_.startFrame();
 }
 
 void Apu::endFrame()
 {
-    // TODO: 他のチャネルも...
     sq1_.genSound(soundTimestamp_);
     sq2_.genSound(soundTimestamp_);
     tri_.genSound(soundTimestamp_);
     noi_.genSound(soundTimestamp_);
+    dmc_.genSound(soundTimestamp_);
 }
 
 auto Apu::soundSq1() const -> Apu::SoundSq
@@ -581,6 +712,11 @@ auto Apu::soundTri() const -> Apu::SoundTri
 auto Apu::soundNoi() const -> Apu::SoundNoi
 {
     return noi_.sound();
+}
+
+auto Apu::soundDmc() const -> Apu::SoundDmc
+{
+    return dmc_.sound();
 }
 
 
@@ -623,12 +759,11 @@ void Apu::Square::genSound(int timestamp)
     if(!(8 <= timerReg_.raw && timerReg_.raw <= 0x7FF) ||
        !checkFreq() ||
        !length_){ // silenced
-        fill(sound_.begin()+soundPos_, sound_.begin()+timestamp, 15);
+        fill(sound_.begin()+soundPos_, sound_.begin()+timestamp, 0);
         soundPos_ = timestamp;
     }
     else{
-        uint8_t amp = 2 * (envelope_.constant ? envelope_.volume
-                                              : envelope_.decay_level); // [0,30]
+        uint8_t amp = envelope_.constant ? envelope_.volume : envelope_.decay_level;
         for(; soundPos_ < timestamp; ++soundPos_){
             sound_[soundPos_] = amp * SQ_DUTIES[duty_][step_];
             if(!timer_){
@@ -659,9 +794,7 @@ namespace{
         // FCEUXの真似
         uint8_t sample = step & 0xF;
         if(!(step & 0x10)) sample ^= 0xF;
-        // [0,15] だと中心が 7.5 になってしまうので2倍して [0,30] にす
-        // る。これで無音も表せるようになる
-        return 2 * sample;
+        return sample;
     }
 }
 
@@ -686,7 +819,7 @@ void Apu::Triangle::genSound(int timestamp)
         }
     }
     else{ // silenced
-        fill(sound_.begin()+soundPos_, sound_.begin()+timestamp, 15);
+        fill(sound_.begin()+soundPos_, sound_.begin()+timestamp, 0);
         soundPos_ = timestamp;
     }
 }
@@ -721,19 +854,19 @@ void Apu::Noise::genSound(int timestamp)
 {
     assert(soundPos_ <= timestamp);
 
-    uint8_t amp = 2 * (envelope_.constant ? envelope_.volume : envelope_.decay_level); // [0,30]
+    uint8_t amp = envelope_.constant ? envelope_.volume : envelope_.decay_level;
 
     // length counterが0であってもタイマは回さなければならないらしい
     // (FCEUXを読む限りでは)
-    uint8_t out = (lfsr_.reg&1) ? 15 : amp;
+    uint8_t out = (lfsr_.reg&1) ? 0 : amp;
     for(; soundPos_ < timestamp; ++soundPos_){
-        sound_[soundPos_] = length_ ? out : 15;
+        sound_[soundPos_] = length_ ? out : 0;
         // FCEUXではタイマが1->0のときにLFSRを更新してるけど、これだと
         // 周期が1ずれるんじゃないかな…
         if(!timer_){
             timer_ = NOI_P_TABLE[timerReg_];
             lfsr_.shift();
-            out = (lfsr_.reg&1) ? 15 : amp;
+            out = (lfsr_.reg&1) ? 0 : amp;
         }
         else{
             --timer_;
@@ -742,3 +875,19 @@ void Apu::Noise::genSound(int timestamp)
 }
 
 
+void Apu::Dmc::startFrame()
+{
+    soundPos_ = 0;
+}
+
+auto Apu::Dmc::sound() const -> SoundDmc
+{
+    return SoundDmc(sound_.data(), soundPos_);
+}
+
+void Apu::Dmc::genSound(int timestamp)
+{
+    for(; soundPos_ < timestamp; ++soundPos_){
+        sound_[soundPos_] = out_.level;
+    }
+}

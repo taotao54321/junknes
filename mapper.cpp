@@ -181,6 +181,7 @@ auto Mapper::soundSq1() const -> SoundSq  { return apu_.soundSq1(); }
 auto Mapper::soundSq2() const -> SoundSq  { return apu_.soundSq2(); }
 auto Mapper::soundTri() const -> SoundTri { return apu_.soundTri(); }
 auto Mapper::soundNoi() const -> SoundNoi { return apu_.soundNoi(); }
+auto Mapper::soundDmc() const -> SoundDmc { return apu_.soundDmc(); }
 
 
 void Mapper::triggerNmi() { cpu_.triggerNmi(); }
@@ -576,7 +577,20 @@ void Mapper::PpuDoor::triggerNmi()
 
 Mapper::ApuDoor::ApuDoor(Mapper& mapper) : mapper_(mapper) {}
 
-void Mapper::ApuDoor::triggerIrq()
+uint8_t Mapper::ApuDoor::readDmc(uint16_t addr)
+{
+    assert(0x8000 <= addr /* && addr <= 0xFFFF */);
+
+    mapper_.cpu_.dmcDmaDelay(4); // FCEUXと同じ
+    return mapper_.read(addr);
+}
+
+void Mapper::ApuDoor::triggerDmcIrq()
+{
+    mapper_.triggerIrq();
+}
+
+void Mapper::ApuDoor::triggerFrameIrq()
 {
     mapper_.triggerIrq();
 }

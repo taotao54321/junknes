@@ -82,6 +82,7 @@ public:
     void triggerIrq();
 
     void oamDmaDelay();
+    void dmcDmaDelay(int cycle /* CPU cycle */);
 
     void exec(int cycle /* PPU cycle */);
 

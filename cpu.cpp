@@ -135,6 +135,11 @@ void Cpu::oamDmaDelay()
     delay(512); // FCEUXと同じ。正しくは513or514?
 }
 
+void Cpu::dmcDmaDelay(int cycle)
+{
+    delay(cycle);
+}
+
 void Cpu::exec(int cycle)
 {
     restCycle_ += cycle;

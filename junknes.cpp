@@ -128,10 +128,14 @@ namespace{
         const Nes::SoundSq&  sound_sq1,
         const Nes::SoundSq&  sound_sq2,
         const Nes::SoundTri& sound_tri,
-        const Nes::SoundNoi& sound_noi)
+        const Nes::SoundNoi& sound_noi,
+        const Nes::SoundDmc& sound_dmc)
     {
-        assert(allequal(
-            get<1>(sound_sq1), get<1>(sound_sq2), get<1>(sound_tri), get<1>(sound_noi)));
+        assert(allequal(get<1>(sound_sq1),
+                        get<1>(sound_sq2),
+                        get<1>(sound_tri),
+                        get<1>(sound_noi),
+                        get<1>(sound_dmc)));
 
         // CPU周波数とサンプリング周波数が異なるので、1F内では全ての
         // データを処理できず余りが出る。offset 変数でそのズレを管理
@@ -151,14 +155,16 @@ namespace{
         int n_written = 0;
         while(n_written < n_sample){
             int pos_int = static_cast<int>(pos);
-            // TODO: まともなmixerを書く
-            int data = 0;
-            data += get<0>(sound_sq1)[pos_int] - 15;
-            data += get<0>(sound_sq2)[pos_int] - 15;
-            data += get<0>(sound_tri)[pos_int] - 15;
-            data += get<0>(sound_noi)[pos_int] - 15;
-            //INFO("%d\n", data);
-            int16_t sample = 300 * data;
+            uint8_t v_sq1 = get<0>(sound_sq1)[pos_int]; // [0,15]
+            uint8_t v_sq2 = get<0>(sound_sq2)[pos_int]; // [0,15]
+            uint8_t v_tri = get<0>(sound_tri)[pos_int]; // [0,15]
+            uint8_t v_noi = get<0>(sound_noi)[pos_int]; // [0,15]
+            uint8_t v_dmc = get<0>(sound_dmc)[pos_int]; // [0,127]
+
+            // http://wiki.nesdev.com/w/index.php/APU_Mixer
+            double mixed = 0.00752*(v_sq1+v_sq2) + 0.00851*v_tri + 0.00494*v_noi + 0.00335*v_dmc;
+            int16_t sample = 20000 * (mixed-0.5);
+
             if(audio_queue.push(sample)){
                 ++n_written;
                 pos += STEP;
@@ -289,7 +295,7 @@ int main(int argc, char** argv)
 
         nes.emulateFrame();
 
-        audio_push(nes.soundSq1(), nes.soundSq2(), nes.soundTri(), nes.soundNoi());
+        audio_push(nes.soundSq1(), nes.soundSq2(), nes.soundTri(), nes.soundNoi(), nes.soundDmc());
 
         draw(tex, nes.screen());
 
