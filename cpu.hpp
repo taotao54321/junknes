@@ -204,6 +204,33 @@ private:
     void PUSH_P(bool b4);
     void POP_P();
 
+    // unofficial
+    void KIL();
+    // http://wiki.nesdev.com/w/index.php/Programming_with_unofficial_opcodes
+    void ALR(std::uint8_t value);
+    void ANC(std::uint8_t value);
+    void ARR(std::uint8_t value);
+    void AXS(std::uint8_t value);
+    void LAX(std::uint8_t value);
+    void DCP(AddrValue av);
+    void ISC(AddrValue av);
+    void RLA(AddrValue av);
+    void RRA(AddrValue av);
+    void SLO(AddrValue av);
+    void SRE(AddrValue av);
+    // unofficial and unstable
+    // http://www.oxyron.de/html/opcodes02.html
+    // とりあえずFCEUXと同じ実装にしてある
+    void LAS(std::uint16_t arg); // stable?
+    uint8_t AHX_VALUE(std::uint16_t arg);
+    void AHX_ABY(std::uint16_t arg);
+    void AHX_IY(std::uint16_t arg);
+    void TAS(std::uint16_t arg);
+    void SHX(std::uint16_t arg);
+    void SHY(std::uint16_t arg);
+    void LAX_IM(std::uint16_t arg);
+    void XAA(std::uint16_t arg);
+
 
     std::shared_ptr<Door> door_;
     std::shared_ptr<DebugDoor> dbgDoor_;
@@ -220,6 +247,8 @@ private:
     std::uint8_t S_;
 
     Status P_;
+
+    bool jammed_;
 
     int apuRestCycle_; // CPU cycle
 };

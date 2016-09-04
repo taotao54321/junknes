@@ -28,7 +28,7 @@ namespace{
         /*0xB0*/ 2,5,2,5, 4,4,4,4, 2,4,2,4, 4,4,4,4,
         /*0xC0*/ 2,6,2,8, 3,3,5,5, 2,2,2,2, 4,4,6,6,
         /*0xD0*/ 2,5,2,8, 4,4,6,6, 2,4,2,7, 4,4,7,7,
-        /*0xE0*/ 2,6,3,8, 3,3,5,5, 2,2,2,2, 4,4,6,6,
+        /*0xE0*/ 2,6,3,8, 3,3,5,5, 2,2,2,2, 4,4,6,6, // 0xE2 は 2 だと思うがFCEUXに合わせた
         /*0xF0*/ 2,5,2,8, 4,4,6,6, 2,4,2,7, 4,4,7,7
     };
 
@@ -96,6 +96,8 @@ void Cpu::hardReset()
     P_.b4 = 1;
     P_.b5 = 1;
 
+    jammed_ = false;
+
     apuRestCycle_ = 0;
 }
 
@@ -116,6 +118,8 @@ void Cpu::softReset()
     S_ -= 3;
 
     P_.I = 1;
+
+    jammed_ = false;
 
     //apuRestCycle_ = 0;
 }
@@ -145,10 +149,10 @@ void Cpu::exec(int cycle)
     restCycle_ += cycle;
 
     while(restCycle_ >= 3){
-        if(nmi_){
+        if(nmi_ && !jammed_){
             doNmi();
         }
-        else if(irq_){
+        else if(irq_ && !jammed_){
             if(!P_.I) doIrq();
         }
 
@@ -168,8 +172,10 @@ void Cpu::exec(int cycle)
             door_->tickApu(tmp);
         }
 
-        // 非公式命令はとりあえず無視
         switch(opcode){
+        //------------------------------------------------------------
+        // official
+        //------------------------------------------------------------
         case 0xA9: LDA(arg);         break;
         case 0xA5: LDA(LD_ZP(arg));  break;
         case 0xB5: LDA(LD_ZPX(arg)); break;
@@ -354,8 +360,146 @@ void Cpu::exec(int cycle)
 
         case 0xEA: break; // NOP
 
-        default:
-            break;
+        //------------------------------------------------------------
+        // unofficial
+        //------------------------------------------------------------
+        case 0x02:
+        case 0x12:
+        case 0x22:
+        case 0x32:
+        case 0x42:
+        case 0x52:
+        case 0x62:
+        case 0x72:
+        case 0x92:
+        case 0xB2:
+        case 0xD2:
+        case 0xF2: KIL(); break;
+
+        // NOP
+        case 0x1A:
+        case 0x3A:
+        case 0x5A:
+        case 0x7A:
+        case 0xDA:
+        case 0xFA: break;
+
+        // DOP (double NOP)
+        // im
+        case 0x80:
+        case 0x82:
+        case 0x89:
+        case 0xC2:
+        case 0xE2: break;
+        // zp (どうせ副作用は起こらないので read() は省略。FCEUXと同じ)
+        case 0x04:
+        case 0x44:
+        case 0x64: break;
+        // zpx (どうせ副作用はry)
+        case 0x14:
+        case 0x34:
+        case 0x54:
+        case 0x74:
+        case 0xD4:
+        case 0xF4: break;
+
+        // TOP (triple NOP)
+        // ab (副作用が起こりうるのでオペランドを読む。FCEUXと同じ)
+        case 0x0C: LD_AB(arg); break;
+        // abx (副作用が起こりうるのでry)
+        case 0x1C:
+        case 0x3C:
+        case 0x5C:
+        case 0x7C:
+        case 0xDC:
+        case 0xFC: LD_ABX(arg); break;
+
+        case 0xEB: SBC(arg); break;
+
+        case 0x4B: ALR(arg); break;
+
+        case 0x0B:
+        case 0x2B: ANC(arg); break;
+
+        case 0x6B: ARR(arg); break;
+
+        case 0xCB: AXS(arg); break;
+
+        case 0xA7: LAX(LD_ZP(arg));  break;
+        case 0xB7: LAX(LD_ZPY(arg)); break;
+        case 0xAF: LAX(LD_AB(arg));  break;
+        case 0xBF: LAX(LD_ABY(arg)); break;
+        case 0xA3: LAX(LD_IX(arg));  break;
+        case 0xB3: LAX(LD_IY(arg));  break;
+
+        // SAX
+        case 0x87: ST_ZP (arg, A_ & X_); break;
+        case 0x97: ST_ZPY(arg, A_ & X_); break;
+        case 0x8F: ST_AB (arg, A_ & X_); break;
+        case 0x83: ST_IX (arg, A_ & X_); break;
+
+        case 0xC7: DCP(RMW_ZP(arg));  break;
+        case 0xD7: DCP(RMW_ZPX(arg)); break;
+        case 0xCF: DCP(RMW_AB(arg));  break;
+        case 0xDF: DCP(RMW_ABX(arg)); break;
+        case 0xDB: DCP(RMW_ABY(arg)); break;
+        case 0xC3: DCP(RMW_IX(arg));  break;
+        case 0xD3: DCP(RMW_IY(arg));  break;
+
+        case 0xE7: ISC(RMW_ZP(arg));  break;
+        case 0xF7: ISC(RMW_ZPX(arg)); break;
+        case 0xEF: ISC(RMW_AB(arg));  break;
+        case 0xFF: ISC(RMW_ABX(arg)); break;
+        case 0xFB: ISC(RMW_ABY(arg)); break;
+        case 0xE3: ISC(RMW_IX(arg));  break;
+        case 0xF3: ISC(RMW_IY(arg));  break;
+
+        case 0x27: RLA(RMW_ZP(arg));  break;
+        case 0x37: RLA(RMW_ZPX(arg)); break;
+        case 0x2F: RLA(RMW_AB(arg));  break;
+        case 0x3F: RLA(RMW_ABX(arg)); break;
+        case 0x3B: RLA(RMW_ABY(arg)); break;
+        case 0x23: RLA(RMW_IX(arg));  break;
+        case 0x33: RLA(RMW_IY(arg));  break;
+
+        case 0x67: RRA(RMW_ZP(arg));  break;
+        case 0x77: RRA(RMW_ZPX(arg)); break;
+        case 0x6F: RRA(RMW_AB(arg));  break;
+        case 0x7F: RRA(RMW_ABX(arg)); break;
+        case 0x7B: RRA(RMW_ABY(arg)); break;
+        case 0x63: RRA(RMW_IX(arg));  break;
+        case 0x73: RRA(RMW_IY(arg));  break;
+
+        case 0x07: SLO(RMW_ZP(arg));  break;
+        case 0x17: SLO(RMW_ZPX(arg)); break;
+        case 0x0F: SLO(RMW_AB(arg));  break;
+        case 0x1F: SLO(RMW_ABX(arg)); break;
+        case 0x1B: SLO(RMW_ABY(arg)); break;
+        case 0x03: SLO(RMW_IX(arg));  break;
+        case 0x13: SLO(RMW_IY(arg));  break;
+
+        case 0x47: SRE(RMW_ZP(arg));  break;
+        case 0x57: SRE(RMW_ZPX(arg)); break;
+        case 0x4F: SRE(RMW_AB(arg));  break;
+        case 0x5F: SRE(RMW_ABX(arg)); break;
+        case 0x5B: SRE(RMW_ABY(arg)); break;
+        case 0x43: SRE(RMW_IX(arg));  break;
+        case 0x53: SRE(RMW_IY(arg));  break;
+
+        case 0xBB: LAS(arg); break;
+
+        case 0x9F: AHX_ABY(arg); break;
+        case 0x93: AHX_IY(arg);  break;
+
+        case 0x9B: TAS(arg); break;
+
+        case 0x9E: SHX(arg); break;
+
+        case 0x9C: SHY(arg); break;
+
+        case 0xAB: LAX_IM(arg); break;
+
+        case 0x8B: XAA(arg); break;
         }
     }
 }
@@ -912,4 +1056,150 @@ void Cpu::PUSH_P(bool b4)
     Status p = P_;
     p.b4 = b4;
     push8(p.raw);
+}
+
+void Cpu::KIL()
+{
+    delay(0xFF);
+    jammed_ = true;
+    --PC_;
+}
+
+void Cpu::ALR(uint8_t value)
+{
+    A_ &= value;
+    LSR();
+}
+
+void Cpu::ANC(uint8_t value)
+{
+    AND(value);
+    P_.C = P_.N;
+}
+
+void Cpu::ARR(uint8_t value)
+{
+    A_ &= value;
+    A_ >>= 1;
+    A_ |= P_.C << 7;
+    ZN_UPDATE(A_);
+    P_.C = (A_&0x40) == 1;
+    P_.V = ((A_^(A_>>1))&0x20) == 1;
+}
+
+void Cpu::AXS(uint8_t value)
+{
+    unsigned int result = (A_&X_) - value;
+    P_.C = (result&0x100) == 0;
+    A_ = result & 0xFF;
+    ZN_UPDATE(A_);
+}
+
+void Cpu::LAX(uint8_t value)
+{
+    A_ = X_ = value;
+    ZN_UPDATE(A_);
+}
+
+void Cpu::DCP(AddrValue av)
+{
+    --av.value;
+    CMP(av.value);
+    AV_WRITE(av);
+}
+
+void Cpu::ISC(AddrValue av)
+{
+    ++av.value;
+    SBC(av.value);
+    AV_WRITE(av);
+}
+
+void Cpu::RLA(AddrValue av)
+{
+    bool c_result = av.value & 0x80;
+    av.value <<= 1;
+    av.value |= P_.C;
+    P_.C = c_result;
+    AND(av.value);
+    AV_WRITE(av);
+}
+
+void Cpu::RRA(AddrValue av)
+{
+    av.value >>= 1;
+    av.value |= P_.C << 7;
+    ADC(av.value);
+    AV_WRITE(av);
+}
+
+void Cpu::SLO(AddrValue av)
+{
+    P_.C = (av.value&0x80) != 0;
+    av.value <<= 1;
+    AV_WRITE(av);
+    ORA(av.value);
+}
+
+void Cpu::SRE(AddrValue av)
+{
+    P_.C = av.value & 1;
+    av.value >>= 1;
+    EOR(av.value);
+    AV_WRITE(av);
+}
+
+void Cpu::LAS(uint16_t arg)
+{
+    // FCEUXと同じ
+    // 本当はページまたぎの場合1サイクルのペナルティがかかる?
+    AddrValue av = RMW_ABY(arg);
+    A_ = X_ = S_ = S_ & av.value;
+    ZN_UPDATE(A_);
+    AV_WRITE(av);
+}
+
+uint8_t Cpu::AHX_VALUE(uint16_t arg)
+{
+    return A_ & X_ & (((arg-Y_)>>8)+1);
+}
+
+void Cpu::AHX_ABY(uint16_t arg)
+{
+    ST_ABY(arg, AHX_VALUE(arg));
+}
+
+void Cpu::AHX_IY(uint16_t arg)
+{
+    ST_IY(arg, AHX_VALUE(arg));
+}
+
+void Cpu::TAS(uint16_t arg)
+{
+    S_ = A_ & X_;
+    ST_ABY(arg, S_ & (((arg-Y_)>>8)+1));
+}
+
+void Cpu::SHX(uint16_t arg)
+{
+    ST_ABY(arg, X_ & (((arg-Y_)>>8)+1));
+}
+
+void Cpu::SHY(uint16_t arg)
+{
+    ST_ABX(arg, Y_ & (((arg-X_)>>8)+1));
+}
+
+void Cpu::LAX_IM(uint16_t arg)
+{
+    A_ |= 0xFF;
+    AND(arg);
+    X_ = A_;
+}
+
+void Cpu::XAA(uint16_t arg)
+{
+    A_ |= 0xEE;
+    A_ &= X_;
+    AND(arg);
 }
