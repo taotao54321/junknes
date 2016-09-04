@@ -154,9 +154,10 @@ void Cpu::exec(int cycle)
 
         uint8_t opcode;
         uint16_t arg;
+        State st = state();
         fetchOp(opcode, arg);
 
-        dbgDoor_->beforeExec(state(), opcode, arg);
+        dbgDoor_->beforeExec(st, opcode, arg);
 
         delay(OP_CYCLE[opcode]);
 
