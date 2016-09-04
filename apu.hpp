@@ -68,7 +68,7 @@ private:
     class Square{
     public:
         enum class Ch { SQ1, SQ2 };
-        Square(Ch which);
+        explicit Square(Ch which);
 
         void hardReset();
         void softReset();
