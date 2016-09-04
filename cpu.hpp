@@ -199,6 +199,8 @@ private:
     void RTS();
     void RTI();
 
+    void BRK();
+
     void PUSH_P(bool b4);
     void POP_P();
 

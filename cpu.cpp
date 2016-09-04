@@ -343,6 +343,8 @@ void Cpu::exec(int cycle)
         case 0x60: RTS();    break;
         case 0x40: RTI();    break;
 
+        case 0x00: BRK(); break;
+
         case 0x48: /* PHA */ push8(A_);              break;
         case 0x08: /* PHP */ PUSH_P(/* b4= */ true); break;
 
@@ -880,6 +882,16 @@ void Cpu::RTI()
 {
     POP_P();
     PC_ = pop16();
+}
+
+void Cpu::BRK()
+{
+    push16(PC_);
+    PUSH_P(/* b4= */ true);
+
+    PC_ = read16(VEC_IRQ);
+
+    P_.I = 1;
 }
 
 void Cpu::POP_P()
