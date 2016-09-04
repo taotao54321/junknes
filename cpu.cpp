@@ -168,7 +168,7 @@ void Cpu::exec(int cycle)
             door_->tickApu(tmp);
         }
 
-        // 非公式命令および BRK はとりあえず無視
+        // 非公式命令はとりあえず無視
         switch(opcode){
         case 0xA9: LDA(arg);         break;
         case 0xA5: LDA(LD_ZP(arg));  break;
