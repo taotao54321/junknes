@@ -1089,8 +1089,8 @@ void Cpu::AXS(uint8_t value)
 {
     unsigned int result = (A_&X_) - value;
     P_.C = !(result & 0x100);
-    A_ = result & 0xFF;
-    ZN_UPDATE(A_);
+    X_ = result & 0xFF;
+    ZN_UPDATE(X_);
 }
 
 void Cpu::LAX(uint8_t value)
