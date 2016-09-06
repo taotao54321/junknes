@@ -794,8 +794,8 @@ auto Cpu::RMW_IY(uint16_t arg) -> AddrValue
 
 void Cpu::ZN_UPDATE(uint8_t value)
 {
-    P_.Z = value == 0;
-    P_.N = (value&0x80) != 0;
+    P_.Z = !value;
+    P_.N = bool(value&0x80);
 }
 
 void Cpu::LDA(uint8_t value)
@@ -820,7 +820,7 @@ void Cpu::ADC(uint8_t value)
 {
     unsigned int result = A_ + value + P_.C;
 
-    P_.C = (result&0x100) != 0;
+    P_.C = bool(result&0x100);
     P_.V = (((A_^value)&0x80)^0x80) && ((A_^result)&0x80);
 
     A_ = result & 0xFF;
@@ -831,8 +831,8 @@ void Cpu::SBC(uint8_t value)
 {
     unsigned int result = A_ - value - !P_.C;
 
-    P_.C = (result&0x100) == 0;
-    P_.V = ((A_^value)&(A_^result)&0x80) != 0;
+    P_.C = !(result & 0x100);
+    P_.V = bool((A_^value) & (A_^result) & 0x80);
 
     A_ = result & 0xFF;
     ZN_UPDATE(A_);
@@ -858,7 +858,7 @@ void Cpu::EOR(uint8_t value)
 
 void Cpu::ASL_DO(uint8_t& value)
 {
-    P_.C = (value&0x80) != 0;
+    P_.C = bool(value&0x80);
     value <<= 1;
     ZN_UPDATE(value);
 }
@@ -934,7 +934,7 @@ void Cpu::ROR(AddrValue av)
 
 void Cpu::BIT(uint8_t value)
 {
-    P_.Z = (A_&value) == 0;
+    P_.Z = !(A_ & value);
 
     Status p(value);
     P_.V = p.V;
@@ -968,7 +968,7 @@ void Cpu::DEC(AddrValue av)
 void Cpu::CMP_DO(uint8_t lhs, uint8_t rhs)
 {
     unsigned int result = lhs - rhs;
-    P_.C = (result&0x100) == 0;
+    P_.C = !(result & 0x100);
     ZN_UPDATE(result & 0xFF);
 }
 
@@ -1088,7 +1088,7 @@ void Cpu::ARR(uint8_t value)
 void Cpu::AXS(uint8_t value)
 {
     unsigned int result = (A_&X_) - value;
-    P_.C = (result&0x100) == 0;
+    P_.C = !(result & 0x100);
     A_ = result & 0xFF;
     ZN_UPDATE(A_);
 }
@@ -1133,7 +1133,7 @@ void Cpu::RRA(AddrValue av)
 
 void Cpu::SLO(AddrValue av)
 {
-    P_.C = (av.value&0x80) != 0;
+    P_.C = bool(av.value&0x80);
     av.value <<= 1;
     AV_WRITE(av);
     ORA(av.value);
