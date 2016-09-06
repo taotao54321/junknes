@@ -151,9 +151,11 @@ void Cpu::exec(int cycle)
     while(restCycle_ >= 3){
         if(nmi_ && !jammed_){
             doNmi();
+            nmi_ = false;
         }
         else if(irq_ && !jammed_){
             if(!P_.I) doIrq();
+            irq_ = false;
         }
 
         uint8_t opcode;
@@ -515,8 +517,6 @@ void Cpu::doNmi()
     PC_ = read16(VEC_NMI);
 
     P_.I = 1;
-
-    nmi_ = false;
 }
 
 void Cpu::doIrq()
@@ -529,8 +529,6 @@ void Cpu::doIrq()
     PC_ = read16(VEC_IRQ);
 
     P_.I = 1;
-
-    irq_ = false;
 }
 
 void Cpu::delay(int cycle)
