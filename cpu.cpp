@@ -1125,8 +1125,10 @@ void Cpu::RLA(AddrValue av)
 
 void Cpu::RRA(AddrValue av)
 {
+    bool c_result = av.value & 1;
     av.value >>= 1;
     av.value |= P_.C << 7;
+    P_.C = c_result;
     ADC(av.value);
     AV_WRITE(av);
 }
