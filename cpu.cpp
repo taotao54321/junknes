@@ -1081,8 +1081,8 @@ void Cpu::ARR(uint8_t value)
     A_ >>= 1;
     A_ |= P_.C << 7;
     ZN_UPDATE(A_);
-    P_.C = (A_&0x40) == 1;
-    P_.V = ((A_^(A_>>1))&0x20) == 1;
+    P_.C = bool(A_&0x40);
+    P_.V = bool((A_^(A_>>1))&0x20);
 }
 
 void Cpu::AXS(uint8_t value)
