@@ -579,8 +579,8 @@ void Apu::Dmc::write4010(uint8_t value, int timestamp)
             irq_ = false;
     }
 
-    irq_       = (value & 0x80) == 1;
-    loop_      = (value & 0x40) == 1;
+    irq_       = value & 0x80;
+    loop_      = value & 0x40;
     periodReg_ = value & 0x0F;
 }
 
@@ -667,8 +667,8 @@ void Apu::write4017(uint8_t value)
     nextStep_  = 1;
     restCycle_ = STEP_CYCLE;
 
-    frameIrqOn_ = (value&0x40) == 0;
-    step5_      = (value&0x80) == 1;
+    frameIrqOn_ = !(value & 0x40);
+    step5_      =   value & 0x80;
 }
 
 
