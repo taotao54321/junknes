@@ -1,4 +1,6 @@
 .scon*
 
 junknes
+libjunknes.so
 *.o
+*.os

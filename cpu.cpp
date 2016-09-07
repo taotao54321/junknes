@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cassert>
 
+#include "junknes.h"
 #include "cpu.hpp"
 #include "util.hpp"
 
@@ -11,6 +12,25 @@ namespace{
     constexpr uint16_t VEC_NMI   = 0xFFFA;
     constexpr uint16_t VEC_RESET = 0xFFFC;
     constexpr uint16_t VEC_IRQ   = 0xFFFE;
+
+    constexpr int OP_ARGLEN[0x100] = {
+        /*0x00*/ 1,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0x10*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
+        /*0x20*/ 2,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0x30*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
+        /*0x40*/ 0,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0x50*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
+        /*0x60*/ 0,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0x70*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
+        /*0x80*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0x90*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
+        /*0xA0*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0xB0*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
+        /*0xC0*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0xD0*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
+        /*0xE0*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
+        /*0xF0*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2
+    };
 
     // copied from FCEUX
     constexpr int OP_CYCLE[0x100] = {
@@ -31,44 +51,36 @@ namespace{
         /*0xE0*/ 2,6,3,8, 3,3,5,5, 2,2,2,2, 4,4,6,6, // 0xE2 は 2 だと思うがFCEUXに合わせた
         /*0xF0*/ 2,5,2,8, 4,4,6,6, 2,4,2,7, 4,4,7,7
     };
-
-
-    class NullDebugDoor : public Cpu::DebugDoor{
-    public:
-        void beforeExec(const Cpu::State&, uint8_t, uint16_t) override {}
-    };
 }
-
-
-constexpr int Cpu::OP_ARGLEN[];
 
 
 Cpu::Door::~Door() {}
 
-Cpu::DebugDoor::~DebugDoor() {}
-
 
 Cpu::Cpu(const shared_ptr<Door>& door)
-    : door_(door), dbgDoor_(nullptr)
+    : door_(door), beforeExecHook_(nullptr)
 {
     
 }
 
-auto Cpu::state() const -> State
+JunknesCpuState Cpu::state() const
 {
-    State st;
+    JunknesCpuState st;
+
     st.PC = PC_;
     st.A  = A_;
     st.X  = X_;
     st.Y  = Y_;
     st.S  = S_;
-    st.P  = P_;
-    return st;
-}
 
-void Cpu::setDebugDoor(const shared_ptr<DebugDoor>& dbgDoor)
-{
-    dbgDoor_ = dbgDoor ? dbgDoor : make_shared<NullDebugDoor>();
+    st.P.C = P_.C;
+    st.P.Z = P_.Z;
+    st.P.I = P_.I;
+    st.P.D = P_.D;
+    st.P.V = P_.V;
+    st.P.N = P_.N;
+
+    return st;
 }
 
 /**
@@ -144,6 +156,12 @@ void Cpu::dmcDmaDelay(int cycle)
     delay(cycle);
 }
 
+void Cpu::beforeExec(JunknesCpuHook hook, void* userdata)
+{
+    beforeExecHook_ = hook;
+    beforeExecData_ = userdata;
+}
+
 void Cpu::exec(int cycle)
 {
     restCycle_ += cycle;
@@ -160,10 +178,11 @@ void Cpu::exec(int cycle)
 
         uint8_t opcode;
         uint16_t arg;
-        State st = state();
+        JunknesCpuState st = state();
         fetchOp(opcode, arg);
 
-        dbgDoor_->beforeExec(st, opcode, arg);
+        if(beforeExecHook_)
+            beforeExecHook_(&st, opcode, arg, beforeExecData_);
 
         delay(OP_CYCLE[opcode]);
 

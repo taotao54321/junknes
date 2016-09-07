@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cassert>
 
+#include "junknes.h"
 #include "apu.hpp"
 #include "util.hpp"
 
@@ -695,27 +696,27 @@ void Apu::endFrame()
     dmc_.genSound(soundTimestamp_);
 }
 
-auto Apu::soundSq1() const -> Apu::SoundSq
+JunknesSoundChannel Apu::soundSq1() const
 {
     return sq1_.sound();
 }
 
-auto Apu::soundSq2() const -> Apu::SoundSq
+JunknesSoundChannel Apu::soundSq2() const
 {
     return sq2_.sound();
 }
 
-auto Apu::soundTri() const -> Apu::SoundTri
+JunknesSoundChannel Apu::soundTri() const
 {
     return tri_.sound();
 }
 
-auto Apu::soundNoi() const -> Apu::SoundNoi
+JunknesSoundChannel Apu::soundNoi() const
 {
     return noi_.sound();
 }
 
-auto Apu::soundDmc() const -> Apu::SoundDmc
+JunknesSoundChannel Apu::soundDmc() const
 {
     return dmc_.sound();
 }
@@ -726,9 +727,9 @@ void Apu::Square::startFrame()
     soundPos_ = 0;
 }
 
-auto Apu::Square::sound() const -> Apu::SoundSq
+JunknesSoundChannel Apu::Square::sound() const
 {
-    return SoundSq(sound_.data(), soundPos_);
+    return JunknesSoundChannel{ soundPos_, sound_.data() };
 }
 
 namespace{
@@ -784,9 +785,9 @@ void Apu::Triangle::startFrame()
     soundPos_ = 0;
 }
 
-auto Apu::Triangle::sound() const -> Apu::SoundTri
+JunknesSoundChannel Apu::Triangle::sound() const
 {
-    return SoundTri(sound_.data(), soundPos_);
+    return JunknesSoundChannel{ soundPos_, sound_.data() };
 }
 
 namespace{
@@ -831,9 +832,9 @@ void Apu::Noise::startFrame()
     soundPos_ = 0;
 }
 
-auto Apu::Noise::sound() const -> SoundNoi
+JunknesSoundChannel Apu::Noise::sound() const
 {
-    return SoundNoi(sound_.data(), soundPos_);
+    return JunknesSoundChannel{ soundPos_, sound_.data() };
 }
 
 void Apu::Noise::Lfsr::shift()
@@ -881,9 +882,9 @@ void Apu::Dmc::startFrame()
     soundPos_ = 0;
 }
 
-auto Apu::Dmc::sound() const -> SoundDmc
+JunknesSoundChannel Apu::Dmc::sound() const
 {
-    return SoundDmc(sound_.data(), soundPos_);
+    return JunknesSoundChannel{ soundPos_, sound_.data() };
 }
 
 void Apu::Dmc::genSound(int timestamp)

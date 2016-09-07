@@ -1,10 +1,10 @@
 #pragma once
 
 #include <array>
-#include <tuple>
 #include <memory>
 #include <cstdint>
 
+#include "junknes.h"
 #include "util.hpp"
 
 class Apu{
@@ -46,17 +46,13 @@ public:
     void write4015(std::uint8_t value);
     void write4017(std::uint8_t value);
 
-    using SoundSq  = std::tuple<const std::uint8_t*, int>;
-    using SoundTri = std::tuple<const std::uint8_t*, int>;
-    using SoundNoi = std::tuple<const std::uint8_t*, int>;
-    using SoundDmc = std::tuple<const std::uint8_t*, int>;
     void startFrame();
     void endFrame();
-    SoundSq  soundSq1() const;
-    SoundSq  soundSq2() const;
-    SoundTri soundTri() const;
-    SoundNoi soundNoi() const;
-    SoundDmc soundDmc() const;
+    JunknesSoundChannel soundSq1() const;
+    JunknesSoundChannel soundSq2() const;
+    JunknesSoundChannel soundTri() const;
+    JunknesSoundChannel soundNoi() const;
+    JunknesSoundChannel soundDmc() const;
 
 private:
     void updateStep();
@@ -83,7 +79,7 @@ private:
 
         void startFrame();
         void genSound(int timestamp);
-        SoundSq sound() const;
+        JunknesSoundChannel sound() const;
     private:
         bool checkFreq();
 
@@ -145,7 +141,7 @@ private:
         // フレームごとに出力を取得するための適当インターフェース
         void startFrame();
         void genSound(int timestamp);
-        SoundTri sound() const;
+        JunknesSoundChannel sound() const;
     private:
         bool enabled_;
         unsigned int timer_; // CPU cycle
@@ -191,7 +187,7 @@ private:
 
         void startFrame();
         void genSound(int timestamp);
-        SoundNoi sound() const;
+        JunknesSoundChannel sound() const;
     private:
         bool enabled_;
         unsigned int timer_;
@@ -237,7 +233,7 @@ private:
 
         void startFrame();
         void genSound(int timestamp);
-        SoundDmc sound() const;
+        JunknesSoundChannel sound() const;
     private:
         const std::shared_ptr<Door>& door_;
 

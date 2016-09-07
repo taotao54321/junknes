@@ -5,6 +5,12 @@
 
 #pragma once
 
-#include "nes.hpp"
+#include <array>
+#include <cstdint>
 
-bool ines_split(const char* path, Nes::Prg& prg, Nes::Chr& chr, Nes::NtMirror& mirror);
+#include "junknes.h"
+
+bool ines_split(const char* path,
+                std::array<std::uint8_t, 0x8000>& prg,
+                std::array<std::uint8_t, 0x2000>& chr,
+                JunknesMirroring& mirror);

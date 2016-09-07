@@ -1,9 +1,11 @@
+#include <array>
 #include <algorithm>
+#include <memory>
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
 
-#include "nes.hpp"
+#include "junknes.h"
 #include "ines.hpp"
 #include "util.hpp"
 
@@ -23,13 +25,16 @@ namespace{
     };
 }
 
-bool ines_split(const char* path, Nes::Prg& prg, Nes::Chr& chr, Nes::NtMirror& mirror)
+bool ines_split(const char* path,
+                std::array<std::uint8_t, 0x8000>& prg,
+                std::array<std::uint8_t, 0x2000>& chr,
+                JunknesMirroring& mirror)
 {
-    FILE* in = fopen(path, "rb");
+    unique_ptr<FILE, decltype(&fclose)> in(fopen(path, "rb"), fclose);
     if(!in) return false;
 
     uint8_t hdr[16];
-    if(fread(hdr, 1, sizeof(hdr), in) != sizeof(hdr)) return false;
+    if(fread(hdr, 1, sizeof(hdr), in.get()) != sizeof(hdr)) return false;
     if(memcmp(hdr, INES_MAGIC, 4) != 0) return false;
 
     unsigned int prg_count = hdr[4];
@@ -44,11 +49,9 @@ bool ines_split(const char* path, Nes::Prg& prg, Nes::Chr& chr, Nes::NtMirror& m
     if(flags.mirror_four) return false;
     if(flags.mapper != 0) return false;
 
-    if(fread(prg.data(), 1, 0x4000*prg_count, in) != 0x4000*prg_count) return false;
+    if(fread(prg.data(), 1, 0x4000*prg_count, in.get()) != 0x4000*prg_count) return false;
     if(chr_count)
-        if(fread(chr.data(), 1, 0x2000, in) != 0x2000) return false;
-
-    fclose(in);
+        if(fread(chr.data(), 1, 0x2000, in.get()) != 0x2000) return false;
 
     // 16K PRGはミラーして32Kにする
     if(prg_count == 1)
@@ -57,7 +60,7 @@ bool ines_split(const char* path, Nes::Prg& prg, Nes::Chr& chr, Nes::NtMirror& m
     if(chr_count == 0)
         chr.fill(0);
 
-    mirror = flags.mirror_v ? Nes::NtMirror::VERT : Nes::NtMirror::HORIZ;
+    mirror = flags.mirror_v ? JUNKNES_MIRROR_V : JUNKNES_MIRROR_H;
 
     return true;
 }

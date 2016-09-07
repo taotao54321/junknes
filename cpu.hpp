@@ -3,52 +3,11 @@
 #include <memory>
 #include <cstdint>
 
+#include "junknes.h"
 #include "util.hpp"
 
 class Cpu{
 public:
-    static constexpr int OP_ARGLEN[0x100] = {
-        /*0x00*/ 1,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0x10*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
-        /*0x20*/ 2,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0x30*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
-        /*0x40*/ 0,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0x50*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
-        /*0x60*/ 0,1,0,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0x70*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
-        /*0x80*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0x90*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
-        /*0xA0*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0xB0*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
-        /*0xC0*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0xD0*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2,
-        /*0xE0*/ 1,1,1,1, 1,1,1,1, 0,1,0,1, 2,2,2,2,
-        /*0xF0*/ 1,1,0,1, 1,1,1,1, 0,2,0,2, 2,2,2,2
-    };
-
-    union Status{
-        std::uint8_t raw;
-        explicit Status(std::uint8_t value=0) : raw(value) {};
-        Status& operator=(const Status& rhs) { raw = rhs.raw; return *this; }
-        BitField8<0> C;
-        BitField8<1> Z;
-        BitField8<2> I;
-        BitField8<3> D;
-        BitField8<4> b4;
-        BitField8<5> b5; // always 1
-        BitField8<6> V;
-        BitField8<7> N;
-    };
-
-    struct State{
-        std::uint16_t PC;
-        std::uint8_t  A;
-        std::uint8_t  X;
-        std::uint8_t  Y;
-        std::uint8_t  S;
-        Status        P;
-    };
-
     // CPUから外部へアクセスするためのインターフェース
     class Door{
     public:
@@ -60,20 +19,7 @@ public:
         virtual void tickApu(int cycle /* CPU cycle */) = 0;
     };
 
-    class DebugDoor{
-    public:
-        virtual ~DebugDoor();
-        virtual void beforeExec(
-            const State&  state,
-            std::uint8_t  opcode,
-            std::uint16_t operand) = 0;
-    };
-
     explicit Cpu(const std::shared_ptr<Door>& door);
-
-    State state() const;
-
-    void setDebugDoor(const std::shared_ptr<DebugDoor>& dbgDoor);
 
     void hardReset();
     void softReset();
@@ -86,6 +32,8 @@ public:
 
     void exec(int cycle /* PPU cycle */);
 
+    void beforeExec(JunknesCpuHook hook, void* userdata);
+
 private:
     void doNmi();
     void doIrq();
@@ -93,6 +41,8 @@ private:
     void delay(int cycle /* CPU cycle */);
 
     void fetchOp(std::uint8_t& opcode, std::uint16_t& operand);
+
+    JunknesCpuState state() const;
 
     std::uint8_t read8(std::uint16_t addr);
     std::uint16_t read16(std::uint16_t addr);
@@ -233,7 +183,9 @@ private:
 
 
     std::shared_ptr<Door> door_;
-    std::shared_ptr<DebugDoor> dbgDoor_;
+
+    JunknesCpuHook beforeExecHook_;
+    void* beforeExecData_;
 
     int restCycle_; // PPU cycle
 
@@ -246,6 +198,19 @@ private:
     std::uint8_t Y_;
     std::uint8_t S_;
 
+    union Status{
+        std::uint8_t raw;
+        explicit Status(std::uint8_t value=0) : raw(value) {};
+        Status& operator=(const Status& rhs) { raw = rhs.raw; return *this; }
+        BitField8<0> C;
+        BitField8<1> Z;
+        BitField8<2> I;
+        BitField8<3> D;
+        BitField8<4> b4;
+        BitField8<5> b5; // always 1
+        BitField8<6> V;
+        BitField8<7> N;
+    };
     Status P_;
 
     bool jammed_;
