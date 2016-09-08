@@ -22,21 +22,44 @@ env_lib.SharedLibrary(
     ["junknes.cpp", "nes.cpp", "cpu.cpp", "ppu.cpp", "apu.cpp"],
 )
 
-env_main = Environment(
+env_ines = Environment(variables=vars)
+env_ines.Append(CXXFLAGS = CXXFLAGS_BASE + CXXFLAGS_OPTDBG)
+obj_ines = env_ines.Object("ines.cpp")
+
+env_main_sdl2 = Environment(
     ENV = {
         "PATH" : os.environ["PATH"], # 自分の sdl2-config を使うため
     },
     variables = vars,
 )
-env_main.Append(
+env_main_sdl2.Append(
     CXXFLAGS = CXXFLAGS_BASE + CXXFLAGS_OPTDBG,
 )
-env_main.ParseConfig("sdl2-config --cflags --libs")
-env_main.Requires("junknes", "libjunknes.so")
-env_main.Program(
+env_main_sdl2.ParseConfig("sdl2-config --cflags --libs")
+env_main_sdl2.Requires("junknes-sdl2", "libjunknes.so")
+env_main_sdl2.Program(
     "junknes-sdl2",
-    ["main-sdl2.cpp", "ines.cpp"],
+    ["main-sdl2.cpp", obj_ines],
     LIBS = ["SDL2", "junknes"],
+    LIBPATH = ["."],
+    RPATH = ["."],
+)
+
+env_main_sdl1 = Environment(
+    ENV = {
+        "PATH" : os.environ["PATH"], # 自分の sdl-config を使うため
+    },
+    variables = vars,
+)
+env_main_sdl1.Append(
+    CXXFLAGS = CXXFLAGS_BASE + CXXFLAGS_OPTDBG,
+)
+env_main_sdl1.ParseConfig("sdl-config --cflags --libs")
+env_main_sdl1.Requires("junknes-sdl1", "libjunknes.so")
+env_main_sdl1.Program(
+    "junknes-sdl1",
+    ["main-sdl1.cpp", obj_ines],
+    LIBS = ["SDL", "junknes"],
     LIBPATH = ["."],
     RPATH = ["."],
 )

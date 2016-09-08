@@ -1,5 +1,6 @@
 .scon*
 
+junknes-sdl1
 junknes-sdl2
 libjunknes.so
 *.o

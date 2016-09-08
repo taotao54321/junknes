@@ -426,7 +426,7 @@ namespace{
 
     void usage()
     {
-        error("Usage: junknes <INES> [dbg]");
+        error("Usage: junknes-sdl2 <INES> [dbg]");
     }
 }
 
