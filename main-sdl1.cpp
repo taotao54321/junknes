@@ -334,5 +334,7 @@ int main(int argc, char** argv)
 
     junknes_destroy(nes);
 
+    SDL_CloseAudio();
+
     return 0;
 }
