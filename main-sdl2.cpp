@@ -6,8 +6,6 @@
 #include <cstdint>
 #include <cassert>
 
-#include <alloca.h>
-
 #include <boost/lockfree/spsc_queue.hpp>
 
 #include <SDL.h>
