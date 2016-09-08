@@ -79,6 +79,57 @@ namespace{
         exit(1);
     }
 
+    void print_window(SDL_Window* win)
+    {
+        int w, h;
+        SDL_GetWindowSize(win, &w, &h);
+        uint32_t fmt = SDL_GetWindowPixelFormat(win);
+        printf("size   : %d x %d\n", w, h);
+        printf("format : 0x%08X\n", fmt);
+        printf("  PixelType     : %u\n", SDL_PIXELTYPE(fmt));
+        printf("  PixelOrder    : %u\n", SDL_PIXELORDER(fmt));
+        printf("  PixelLayout   : %u\n", SDL_PIXELLAYOUT(fmt));
+        printf("  BitsPerPixel  : %u\n", SDL_BITSPERPIXEL(fmt));
+        printf("  BytesPerPixel : %u\n", SDL_BYTESPERPIXEL(fmt));
+        printf("  Indexed       : %u\n", SDL_ISPIXELFORMAT_INDEXED(fmt));
+        printf("  Alpha         : %u\n", SDL_ISPIXELFORMAT_ALPHA(fmt));
+        printf("  Fourcc        : %u\n", SDL_ISPIXELFORMAT_FOURCC(fmt));
+    }
+
+    void print_renderer(SDL_Renderer* ren)
+    {
+        SDL_RendererInfo info;
+        if(SDL_GetRendererInfo(ren, &info) != 0)
+            error("SDL_GetRendererinfo() failed");
+        printf("name               : %s\n", info.name);
+        printf("flags              : 0x%08X\n", info.flags);
+        printf("texture formats    : %u\n", info.num_texture_formats);
+        for(unsigned int i = 0; i < info.num_texture_formats; ++i)
+            printf("  0x%08X\n", info.texture_formats[i]);
+        printf("max texture width  : %d\n", info.max_texture_width);
+        printf("max texture height : %d\n", info.max_texture_height);
+    }
+
+    void print_texture(SDL_Texture* tex)
+    {
+        int w, h;
+        uint32_t fmt;
+        int access;
+        if(SDL_QueryTexture(tex, &fmt, &access, &w, &h) != 0)
+            error("SDL_QueryTexture() failed");
+        printf("size   : %d x %d\n", w, h);
+        printf("format : 0x%08X\n", fmt);
+        printf("  PixelType     : %u\n", SDL_PIXELTYPE(fmt));
+        printf("  PixelOrder    : %u\n", SDL_PIXELORDER(fmt));
+        printf("  PixelLayout   : %u\n", SDL_PIXELLAYOUT(fmt));
+        printf("  BitsPerPixel  : %u\n", SDL_BITSPERPIXEL(fmt));
+        printf("  BytesPerPixel : %u\n", SDL_BYTESPERPIXEL(fmt));
+        printf("  Indexed       : %u\n", SDL_ISPIXELFORMAT_INDEXED(fmt));
+        printf("  Alpha         : %u\n", SDL_ISPIXELFORMAT_ALPHA(fmt));
+        printf("  Fourcc        : %u\n", SDL_ISPIXELFORMAT_FOURCC(fmt));
+        printf("access : 0x%08X\n", access);
+    }
+
     void print_audio_spec(const SDL_AudioSpec& spec, bool obtained)
     {
         printf("freq     : %d\n", spec.freq);
@@ -415,7 +466,7 @@ int main(int argc, char** argv)
     want.channels = AUDIO_CHANNELS;
     want.samples  = AUDIO_SAMPLES;
     want.callback = audio_pull;
-    puts("[Desired spec]");
+    puts("[Desired audio spec]");
     print_audio_spec(want, false);
     puts("");
 
@@ -427,7 +478,7 @@ int main(int argc, char** argv)
        want.format   != have.format ||
        want.channels != have.channels) error("spec changed");
 
-    puts("[Obtained spec]");
+    puts("[Obtained audio spec]");
     print_audio_spec(have, true);
     puts("");
 
@@ -438,9 +489,15 @@ int main(int argc, char** argv)
         512, 480,
         0);
     if(!win) error("SDL_CreateWindow() failed");
+    puts("[Window]");
+    print_window(win);
+    puts("");
 
     SDL_Renderer* ren = SDL_CreateRenderer(win, -1, 0);
     if(!ren) error("SDL_CreateRenderer() failed");
+    puts("[Renderer]");
+    print_renderer(ren);
+    puts("");
 
     SDL_Texture* tex = SDL_CreateTexture(
         ren,
@@ -448,6 +505,9 @@ int main(int argc, char** argv)
         SDL_TEXTUREACCESS_STREAMING,
         256, 240);
     if(!tex) error("SDL_CreateTexture() failed");
+    puts("[Texture]");
+    print_texture(tex);
+    puts("");
 
 
     Junknes* nes = junknes_create(prg.data(), chr.data(), mirror);
