@@ -38,6 +38,10 @@ namespace{
     constexpr int      AUDIO_CHANNELS = 1;
     constexpr int      AUDIO_SAMPLES  = 4096;
 
+    constexpr int NES_W = 256;
+    constexpr int NES_H = 240;
+    constexpr int SCALE = 2;
+
     constexpr uint8_t PALETTE_MASTER[0x40][3] = {
         { 0x74, 0x74, 0x74 }, { 0x24, 0x18, 0x8C }, { 0x00, 0x00, 0xA8 }, { 0x44, 0x00, 0x9C },
         { 0x8C, 0x00, 0x74 }, { 0xA8, 0x00, 0x10 }, { 0xA4, 0x00, 0x00 }, { 0x7C, 0x08, 0x00 },
@@ -222,8 +226,11 @@ namespace{
             if(SDL_LockSurface(surf) != 0) error("SDL_LockSurface() failed");
 
         uint32_t* p = reinterpret_cast<uint32_t*>(surf->pixels);
-        for(int i = 0; i < 256*240; ++i)
-            p[i] = palette[buf[i]];
+        for(int y = 0; y < NES_H; ++y)
+            for(int i = 0; i < SCALE; ++i)
+                for(int x = 0; x < NES_W; ++x)
+                    for(int j = 0; j < SCALE; ++j)
+                        *p++ = palette[buf[NES_W*y + x]];
 
         if(SDL_MUSTLOCK(surf))
             SDL_UnlockSurface(surf);
@@ -251,7 +258,7 @@ int main(int argc, char** argv)
     print_video_info();
     puts("");
 
-    SDL_Surface* screen = SDL_SetVideoMode(256, 240, 32, SDL_SWSURFACE);
+    SDL_Surface* screen = SDL_SetVideoMode(SCALE*NES_W, SCALE*NES_H, 32, SDL_SWSURFACE);
     if(!screen) error("SDL_SetVideoMode() failed");
     puts("[Screen]");
     print_surface(screen);
