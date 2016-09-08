@@ -34,7 +34,7 @@ env_main.Append(
 env_main.ParseConfig("sdl2-config --cflags --libs")
 env_main.Requires("junknes", "libjunknes.so")
 env_main.Program(
-    "junknes",
+    "junknes-sdl2",
     ["main-sdl2.cpp", "ines.cpp"],
     LIBS = ["SDL2", "junknes"],
     LIBPATH = ["."],
