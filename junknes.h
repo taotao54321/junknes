@@ -7,6 +7,8 @@ extern "C" {
 
 #include <stdint.h>
 
+#define JUNKNES_API __attribute__((visibility("default")))
+
 struct Junknes;
 
 enum JunknesMirroring{
@@ -56,28 +58,18 @@ typedef void (*JunknesCpuHook)(const struct JunknesCpuState* state,
                                uint8_t opcode, uint16_t operand,
                                void* userdata);
 
-__attribute__((visibility("default")))
-struct Junknes* junknes_create(const uint8_t* prg, // size: 0x8000
-                               const uint8_t* chr, // size: 0x2000
-                               enum JunknesMirroring mirror);
+JUNKNES_API struct Junknes* junknes_create(const uint8_t* prg, // size: 0x8000
+                                           const uint8_t* chr, // size: 0x2000
+                                           enum JunknesMirroring mirror);
+JUNKNES_API void junknes_destroy(struct Junknes* nes);
 
-__attribute__((visibility("default")))
-void junknes_destroy(struct Junknes* nes);
+JUNKNES_API void junknes_emulate_frame(struct Junknes* nes);
+JUNKNES_API void junknes_set_input(struct Junknes* nes, int port, unsigned int input);
 
-__attribute__((visibility("default")))
-void junknes_emulate_frame(struct Junknes* nes);
+JUNKNES_API const uint8_t* junknes_screen(const struct Junknes* nes); // size: 256*240
+JUNKNES_API void junknes_sound(const struct Junknes* nes, struct JunknesSound* sound);
 
-__attribute__((visibility("default")))
-void junknes_set_input(struct Junknes* nes, int port, unsigned int input);
-
-__attribute__((visibility("default")))
-const uint8_t* junknes_screen(const struct Junknes* nes); // size: 256*240
-
-__attribute__((visibility("default")))
-void junknes_sound(const struct Junknes* nes, struct JunknesSound* sound);
-
-__attribute__((visibility("default")))
-void junknes_before_exec(struct Junknes* nes, JunknesCpuHook hook, void* userdata);
+JUNKNES_API void junknes_before_exec(struct Junknes* nes, JunknesCpuHook hook, void* userdata);
 
 
 struct JunknesRgb{
@@ -92,31 +84,24 @@ enum JunknesPixelFormat{
 struct JunknesBlit;
 struct JunknesMixer;
 
-__attribute__((visibility("default")))
+JUNKNES_API
 struct JunknesBlit* junknes_blit_create(const struct JunknesRgb* palette, // size: 0x40
                                         enum JunknesPixelFormat format);
-
-__attribute__((visibility("default")))
-void junknes_blit_destroy(struct JunknesBlit* blit);
+JUNKNES_API void junknes_blit_destroy(struct JunknesBlit* blit);
 
 // 256x240, 整数倍拡大可
-__attribute__((visibility("default")))
+JUNKNES_API
 void junknes_blit_do(struct JunknesBlit* blit, const uint8_t* src, void* dst, int scale);
 
 // int16_t (native endian), モノラル
-__attribute__((visibility("default")))
-struct JunknesMixer* junknes_mixer_create(int freq, int bufsize, int fps);
+JUNKNES_API struct JunknesMixer* junknes_mixer_create(int freq, int bufsize, int fps);
+JUNKNES_API void junknes_mixer_destroy(struct JunknesMixer* mixer);
 
-__attribute__((visibility("default")))
-void junknes_mixer_destroy(struct JunknesMixer* mixer);
-
-__attribute__((visibility("default")))
-void junknes_mixer_push(struct JunknesMixer* mixer, const struct JunknesSound* sound);
+JUNKNES_API void junknes_mixer_push(struct JunknesMixer* mixer, const struct JunknesSound* sound);
 
 // SDLオーディオコールバック関数としてそのまま使える
 // 予め JunknesMixer ポインタを userdata として設定しておくこと
-__attribute__((visibility("default")))
-void junknes_mixer_pull_sdl(void* userdata, uint8_t* stream, int len);
+JUNKNES_API void junknes_mixer_pull_sdl(void* userdata, uint8_t* stream, int len);
 
 
 #ifdef __cplusplus
