@@ -260,5 +260,8 @@ int main(int argc, char** argv)
 
     SDL_CloseAudio();
 
+    junknes_mixer_destroy(mixer);
+    junknes_blit_destroy(blit);
+
     return 0;
 }
