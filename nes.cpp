@@ -135,6 +135,8 @@ void Nes::hardReset()
     ppu_.hardReset();
     apu_.hardReset();
 
+    ppuWarmup_ = 2;
+
     input_.fill(0);
     inputBit_.fill(0);
     inputStrobe_ = false;
@@ -147,6 +149,8 @@ void Nes::softReset()
     cpu_.softReset();
     ppu_.softReset();
     apu_.softReset();
+
+    ppuWarmup_ = 2;
 
     input_.fill(0);
     inputBit_.fill(0);
@@ -164,6 +168,14 @@ void Nes::setInput(int port, unsigned int value)
 // ライン単位でエミュレート
 void Nes::emulateFrame()
 {
+    if(ppuWarmup_){
+        apu_.startFrame();
+        cpu_.exec(341 * 262);
+        apu_.endFrame();
+        --ppuWarmup_;
+        return;
+    }
+
     ppu_.startFrame();
     apu_.startFrame();
 

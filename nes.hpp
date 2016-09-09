@@ -146,6 +146,8 @@ private:
     Ppu ppu_;
     Apu apu_;
 
+    int ppuWarmup_;
+
     using Reader = std::uint8_t (Nes::*)(std::uint16_t);
     using Writer = void (Nes::*)(std::uint16_t, std::uint8_t);
     std::array<Reader, 0x10000> readers_;
