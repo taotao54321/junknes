@@ -6,11 +6,13 @@ import collections
 import itertools
 import ctypes
 import atexit
+import argparse
 
 import sdl
 
 import junknes
 import ines
+import movie
 
 
 NES_W = 256
@@ -86,12 +88,17 @@ def draw(blit, surf, buf):
     junknes.junknes_blit_do(blit, buf, surf.contents.pixels, SCALE)
     sdl.SDL_UnlockSurface(surf)
 
-def usage():
-    error("main-sdl1 <INES>")
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("ines")
+    parser.add_argument("--movie")
+    return parser.parse_args()
 
 def main():
-    if len(sys.argv) != 2: usage()
-    prg, chr_, mirror = ines.ines_split(open(sys.argv[1], "rb"))
+    args = parse_args()
+
+    prg, chr_, mirror = ines.ines_split(open(args.ines, "rb"))
+    movie_ = movie.fm2_read(open(args.movie, "r")) if args.movie else []
 
     if(sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_TIMER) != 0):
         raise SDLError("SDL_Init()")
@@ -141,7 +148,14 @@ def main():
                 (ev.type == sdl.SDL_KEYDOWN and ev.key.keysym.sym == sdl.SDLK_ESCAPE)):
                 running = False
 
-        inputs = get_input()
+        if movie_:
+            cmd, inputs = movie_.pop(0)
+            if cmd & movie.COMMAND_HARDRESET:
+                junknes.junknes_hardreset(nes)
+            if cmd & movie.COMMAND_SOFTRESET:
+                junknes.junknes_softreset(nes)
+        else:
+            inputs = get_input()
         for i, value in enumerate(inputs):
             junknes.junknes_set_input(nes, i, value)
 

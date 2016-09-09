@@ -69,6 +69,8 @@ junknes_create = _funcdef("junknes_create",
                           POINTER(Junknes), (POINTER(c_uint8), POINTER(c_uint8), c_int))
 junknes_destroy = _funcdef("junknes_destroy", None, (POINTER(Junknes),))
 
+junknes_hardreset = _funcdef("junknes_hardreset", None, (POINTER(Junknes),))
+junknes_softreset = _funcdef("junknes_softreset", None, (POINTER(Junknes),))
 junknes_emulate_frame = _funcdef("junknes_emulate_frame", None, (POINTER(Junknes),))
 junknes_set_input = _funcdef("junknes_set_input", None, (POINTER(Junknes), c_int, c_uint))
 
