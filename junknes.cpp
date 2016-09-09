@@ -29,6 +29,16 @@ extern "C" void junknes_destroy(struct Junknes* nes)
     delete nes;
 }
 
+extern "C" void junknes_hardreset(struct Junknes* nes)
+{
+    nes->impl.hardReset();
+}
+
+extern "C" void junknes_softreset(struct Junknes* nes)
+{
+    nes->impl.softReset();
+}
+
 extern "C" void junknes_emulate_frame(struct Junknes* nes)
 {
     nes->impl.emulateFrame();

@@ -63,6 +63,8 @@ JUNKNES_API struct Junknes* junknes_create(const uint8_t* prg, // size: 0x8000
                                            enum JunknesMirroring mirror);
 JUNKNES_API void junknes_destroy(struct Junknes* nes);
 
+JUNKNES_API void junknes_hardreset(struct Junknes* nes);
+JUNKNES_API void junknes_softreset(struct Junknes* nes);
 JUNKNES_API void junknes_emulate_frame(struct Junknes* nes);
 JUNKNES_API void junknes_set_input(struct Junknes* nes, int port, unsigned int input);
 
