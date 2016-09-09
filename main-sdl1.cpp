@@ -4,8 +4,6 @@
 #include <cstdint>
 #include <cassert>
 
-#include <boost/lockfree/spsc_queue.hpp>
-
 #include <SDL.h>
 
 #include "junknes.h"
@@ -42,7 +40,9 @@ namespace{
     constexpr int NES_H = 240;
     constexpr int SCALE = 2;
 
-    constexpr uint8_t PALETTE_MASTER[0x40][3] = {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+    constexpr JunknesRgb PALETTE_MASTER[0x40] = {
         { 0x74, 0x74, 0x74 }, { 0x24, 0x18, 0x8C }, { 0x00, 0x00, 0xA8 }, { 0x44, 0x00, 0x9C },
         { 0x8C, 0x00, 0x74 }, { 0xA8, 0x00, 0x10 }, { 0xA4, 0x00, 0x00 }, { 0x7C, 0x08, 0x00 },
         { 0x40, 0x2C, 0x00 }, { 0x00, 0x44, 0x00 }, { 0x00, 0x50, 0x00 }, { 0x00, 0x3C, 0x14 },
@@ -63,7 +63,7 @@ namespace{
         { 0xFC, 0xE4, 0xA0 }, { 0xE0, 0xFC, 0xA0 }, { 0xA8, 0xF0, 0xBC }, { 0xB0, 0xFC, 0xCC },
         { 0x9C, 0xFC, 0xF0 }, { 0xC4, 0xC4, 0xC4 }, { 0x00, 0x00, 0x00 }, { 0x00, 0x00, 0x00 }
     };
-    array<uint32_t, 0x40> palette;
+#pragma GCC diagnostic pop
 
     void warn(const char* msg)
     {
@@ -129,19 +129,6 @@ namespace{
         }
     }
 
-    void palette_init(const SDL_PixelFormat* fmt)
-    {
-        assert(fmt->BytesPerPixel == 4);
-        assert(fmt->Amask == 0);
-
-        for(unsigned int i = 0; i < palette.size(); ++i){
-            uint8_t r = PALETTE_MASTER[i][0];
-            uint8_t g = PALETTE_MASTER[i][1];
-            uint8_t b = PALETTE_MASTER[i][2];
-            palette[i] = (r<<fmt->Rshift) | (g<<fmt->Gshift) | (b<<fmt->Bshift);
-        }
-    }
-
     void input(unsigned int inputs[2])
     {
         SDL_PumpEvents();
@@ -153,84 +140,14 @@ namespace{
         }
     }
 
-    boost::lockfree::spsc_queue<
-        int16_t,
-        boost::lockfree::capacity<16*(AUDIO_FREQ/FPS)> // とりあえず多めで
-    > audio_queue;
-
-    void audio_pull(void* /*userdata*/, uint8_t* stream, int len)
-    {
-        assert(!(len&1));
-
-        unsigned int n_sample = len / 2;
-
-        int16_t* p = reinterpret_cast<int16_t*>(stream);
-        size_t n_pop = audio_queue.pop(p, n_sample);
-        if(n_pop < n_sample){
-            INFO("UNDERFLOW: %lu samples\n", n_sample - n_pop);
-            fill_n(p+n_pop, 0, n_sample-n_pop);
-        }
-    }
-
-    void audio_push(const JunknesSound& sound)
-    {
-        int len = sound.sq1.len;
-
-        static int offset = 0;
-
-        constexpr double CPU_FREQ = 6.0 * 39375000.0/11.0 / 12.0;
-        constexpr double STEP = CPU_FREQ / AUDIO_FREQ;
-
-        int n_sample = static_cast<int>((len-offset) / STEP);
-        // TODO: 1ステップ未満の場合の offset 補正
-        if(n_sample <= 0) return;
-
-        double pos = offset;
-        int n_written = 0;
-        while(n_written < n_sample){
-            int pos_int = static_cast<int>(pos);
-            uint8_t v_sq1 = sound.sq1.data[pos_int]; // [0, 15]
-            uint8_t v_sq2 = sound.sq2.data[pos_int]; // [0, 15]
-            uint8_t v_tri = sound.tri.data[pos_int]; // [0, 15]
-            uint8_t v_noi = sound.noi.data[pos_int]; // [0, 15]
-            uint8_t v_dmc = sound.dmc.data[pos_int]; // [0,127]
-
-            // http://wiki.nesdev.com/w/index.php/APU_Mixer
-            double mixed = 0.00752*(v_sq1+v_sq2) + 0.00851*v_tri + 0.00494*v_noi + 0.00335*v_dmc;
-            int16_t sample = 20000 * (mixed-0.5);
-
-            if(audio_queue.push(sample)){
-                ++n_written;
-                pos += STEP;
-            }
-            else{
-                INFO("OVERFLOW: %lu samples\n", n_sample - n_written);
-                break;
-            }
-        }
-
-        if(n_written == n_sample){
-            offset = static_cast<int>(STEP - (len-pos));
-        }
-        else{
-            // キューがオーバーフローしたらデータを捨てるので offset もリセット
-            offset = 0;
-        }
-    }
-
-    void draw(SDL_Surface* surf, const uint8_t* buf)
+    void draw(JunknesBlit* blit, SDL_Surface* surf, const uint8_t* buf)
     {
         assert(surf->format->BytesPerPixel == 4);
 
         if(SDL_MUSTLOCK(surf))
             if(SDL_LockSurface(surf) != 0) error("SDL_LockSurface() failed");
 
-        uint32_t* p = reinterpret_cast<uint32_t*>(surf->pixels);
-        for(int y = 0; y < NES_H; ++y)
-            for(int i = 0; i < SCALE; ++i)
-                for(int x = 0; x < NES_W; ++x)
-                    for(int j = 0; j < SCALE; ++j)
-                        *p++ = palette[buf[NES_W*y + x]];
+        junknes_blit_do(blit, buf, surf->pixels, SCALE);
 
         if(SDL_MUSTLOCK(surf))
             SDL_UnlockSurface(surf);
@@ -264,6 +181,13 @@ int main(int argc, char** argv)
     print_surface(screen);
     puts("");
 
+
+    JunknesBlit* blit = junknes_blit_create(PALETTE_MASTER, JUNKNES_PIXEL_XRGB8888);
+    if(!blit) error("junknes_bilt_create() failed");
+    JunknesMixer* mixer = junknes_mixer_create(AUDIO_FREQ, AUDIO_SAMPLES, FPS);
+    if(!mixer) error("junknes_mixer_create() failed");
+
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
     SDL_AudioSpec want = {};
@@ -272,7 +196,8 @@ int main(int argc, char** argv)
     want.format   = AUDIO_FORMAT;
     want.channels = AUDIO_CHANNELS;
     want.samples  = AUDIO_SAMPLES;
-    want.callback = audio_pull;
+    want.callback = junknes_mixer_pull_sdl;
+    want.userdata = mixer;
     puts("[Desired audio spec]");
     print_audio_spec(&want, false);
     puts("");
@@ -289,7 +214,6 @@ int main(int argc, char** argv)
     puts("");
 
 
-    palette_init(screen->format);
     Junknes* nes = junknes_create(prg.data(), chr.data(), mirror);
     if(!nes) error("junknes_create() failed");
 
@@ -315,9 +239,9 @@ int main(int argc, char** argv)
 
         JunknesSound sound;
         junknes_sound(nes, &sound);
-        audio_push(sound);
+        junknes_mixer_push(mixer, &sound);
 
-        draw(screen, junknes_screen(nes));
+        draw(blit, screen, junknes_screen(nes));
         SDL_UpdateRect(screen, 0, 0, 0, 0);
 
         ++frame;

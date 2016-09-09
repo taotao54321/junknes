@@ -80,6 +80,45 @@ __attribute__((visibility("default")))
 void junknes_before_exec(struct Junknes* nes, JunknesCpuHook hook, void* userdata);
 
 
+struct JunknesRgb{
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t unused;
+};
+enum JunknesPixelFormat{
+    JUNKNES_PIXEL_XRGB8888 = 0,
+};
+struct JunknesBlit;
+struct JunknesMixer;
+
+__attribute__((visibility("default")))
+struct JunknesBlit* junknes_blit_create(const struct JunknesRgb* palette, // size: 0x40
+                                        enum JunknesPixelFormat format);
+
+__attribute__((visibility("default")))
+void junknes_blit_destroy(struct JunknesBlit* blit);
+
+// 256x240, 整数倍拡大可
+__attribute__((visibility("default")))
+void junknes_blit_do(struct JunknesBlit* blit, const uint8_t* src, void* dst, int scale);
+
+// int16_t (native endian), モノラル
+__attribute__((visibility("default")))
+struct JunknesMixer* junknes_mixer_create(int freq, int bufsize, int fps);
+
+__attribute__((visibility("default")))
+void junknes_mixer_destroy(struct JunknesMixer* mixer);
+
+__attribute__((visibility("default")))
+void junknes_mixer_push(struct JunknesMixer* mixer, const struct JunknesSound* sound);
+
+// SDLオーディオコールバック関数としてそのまま使える
+// 予め JunknesMixer ポインタを userdata として設定しておくこと
+__attribute__((visibility("default")))
+void junknes_mixer_pull_sdl(void* userdata, uint8_t* stream, int len);
+
+
 #ifdef __cplusplus
 }
 #endif
