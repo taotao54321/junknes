@@ -2,11 +2,14 @@
 
 import os
 
-CXXFLAGS_BASE   = ["-std=c++14", "-Wall", "-Wextra"]
+CXXFLAGS_BASE   = [
+    "-std=c++14", "-Wall", "-Wextra",
+    "-fdiagnostics-color",
+]
 CXXFLAGS_OPTDBG = ["-g3", "-O0"]
 #CXXFLAGS_OPTDBG = []
-#CXXFLAGS_OPTDBG = ["-O2"]
-#CXXFLAGS_OPTDBG = ["-O3"]
+#CXXFLAGS_OPTDBG = ["-O2", "-DNDEBUG"]
+#CXXFLAGS_OPTDBG = ["-O3", "-DNDEBUG"]
 
 vars = Variables(None, ARGUMENTS)
 vars.Add("CXX")
