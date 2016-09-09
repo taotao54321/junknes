@@ -565,7 +565,7 @@ void Cpu::fetchOp(uint8_t& opcode, uint16_t& arg)
     case 0: arg = 0; break; // inline化時の未初期化警告抑止のため一応代入
     case 1: arg = read8(PC_++); break;
     case 2: arg = read16(PC_); PC_ += 2; break;
-    default: assert(false);
+    default: /* NOT REACHED */ assert(false); arg = 0; break;
     }
 }
 

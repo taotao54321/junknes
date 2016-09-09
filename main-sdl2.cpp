@@ -345,7 +345,9 @@ namespace{
             snprintf(buf, sizeof(buf), " %02X %02X", operand&0xFF, operand>>8);
             return buf;
         default:
+            // NOT REACHED
             assert(false);
+            return "";
         }
     }
 
@@ -399,7 +401,9 @@ namespace{
             snprintf(buf, sizeof(buf), "%s #$%02X", name, operand);
             return buf;
         default:
+            // NOT REACHED
             assert(false);
+            return "";
         }
     }
 
