@@ -5,3 +5,4 @@ junknes-sdl2
 libjunknes.so
 *.o
 *.os
+__pycache__/
