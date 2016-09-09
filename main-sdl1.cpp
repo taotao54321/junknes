@@ -136,7 +136,7 @@ namespace{
 
         for(const auto& m : INPUT_MAP){
             if(keys[m.scancode])
-                inputs[static_cast<int>(m.port)] |= m.button;
+                inputs[m.port] |= m.button;
         }
     }
 
@@ -203,7 +203,7 @@ int main(int argc, char** argv)
     puts("");
 
     SDL_AudioSpec have;
-    if(SDL_OpenAudio(&want, &have) != 0) error("SDL_OpenAudioDevice() failed");
+    if(SDL_OpenAudio(&want, &have) != 0) error("SDL_OpenAudio() failed");
 
     if(want.freq     != have.freq ||
        want.format   != have.format ||

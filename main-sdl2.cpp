@@ -147,7 +147,7 @@ namespace{
 
         for(const auto& m : INPUT_MAP){
             if(keys[m.scancode])
-                inputs[static_cast<int>(m.port)] |= m.button;
+                inputs[m.port] |= m.button;
         }
     }
 
