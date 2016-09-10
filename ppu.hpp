@@ -21,11 +21,16 @@ public:
     void hardReset();
     void softReset();
 
-    void startFrame();
+    bool nmiEnabled() const;
+    void setSprOver(bool b);
+    void setSpr0Hit(bool b);
+    void setVBlank(bool b);
+    void resetOamAddr();
+    void reloadAddr();
+
     void startLine();
     void doLine(int line, std::uint8_t* buf);
     void endLine();
-    void startVBlank();
 
     void oamDma(const std::uint8_t buf[0x100]);
 
@@ -92,6 +97,11 @@ private:
     Status status_;
 
     std::uint8_t oamAddr_;
+
+    // FCEUXの PPUSPL に相当
+    // http://wiki.nesdev.com/w/index.php/PPU_registers の "OAMADDR
+    // precautions" の項にあるバグを中途半端に再現しようとしたもの?
+    std::uint8_t oamAddrLo_;
 
     // http://wiki.nesdev.com/w/index.php/PPU_scrolling
     union Addr{

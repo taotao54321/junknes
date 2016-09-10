@@ -50,6 +50,7 @@ void Ppu::softReset()
     genLatch_ = 0;
 }
 
+#if 0
 void Ppu::startFrame()
 {
     status_.vbl = 0;
@@ -57,6 +58,22 @@ void Ppu::startFrame()
     // NesDevWikiだと一部のbitはコピーしないような書き方だけど…
     if(isRenderingOn())
         regV_ = regT_;
+}
+#endif
+
+bool Ppu::nmiEnabled() const { return ctrl_.nmi; }
+void Ppu::setSprOver(bool b) { status_.spr_over = b; }
+void Ppu::setSpr0Hit(bool b) { status_.spr0_hit = b; }
+void Ppu::setVBlank(bool b)  { status_.vbl = b; }
+
+void Ppu::resetOamAddr()
+{
+    oamAddr_ = oamAddrLo_ = 0;
+}
+
+void Ppu::reloadAddr()
+{
+    if(isRenderingOn()) regV_ = regT_;
 }
 
 void Ppu::startLine()
@@ -99,6 +116,7 @@ void Ppu::endLine()
     }
 }
 
+#if 0
 void Ppu::startVBlank()
 {
     status_.vbl = 1;
@@ -108,6 +126,7 @@ void Ppu::startVBlank()
 
     status_.spr0_hit = false; // 本来はpre-renderのdot1でクリアされるらしい
 }
+#endif
 
 void Ppu::oamDma(const uint8_t buf[0x100])
 {

@@ -136,6 +136,7 @@ void Nes::hardReset()
     apu_.hardReset();
 
     ppuWarmup_ = 2;
+    oddFrame_ = false;
 
     input_.fill(0);
     inputBit_.fill(0);
@@ -151,6 +152,7 @@ void Nes::softReset()
     apu_.softReset();
 
     ppuWarmup_ = 2;
+    oddFrame_ = false;
 
     input_.fill(0);
     inputBit_.fill(0);
@@ -166,6 +168,7 @@ void Nes::setInput(int port, unsigned int value)
 }
 
 // ライン単位でエミュレート
+// タイミングは全てFCEUXと同じ。line 240 (post-render) がフレーム境界
 void Nes::emulateFrame()
 {
     if(ppuWarmup_){
@@ -176,6 +179,46 @@ void Nes::emulateFrame()
         return;
     }
 
+    apu_.startFrame();
+
+    // line 240 (post-render)
+    cpu_.exec(341);
+
+    // line 241
+    ppu_.setVBlank(true);
+    ppu_.resetOamAddr(); // PPU[3] = PPUSPL = 0
+    cpu_.exec(12);
+    if(ppu_.nmiEnabled()) triggerNmi();
+    cpu_.exec(329);
+
+    // line 242-260
+    cpu_.exec(341 * 19);
+
+    // line 261 (pre-render)
+    ppu_.setSprOver(false);
+    ppu_.setSpr0Hit(false);
+    ppu_.setVBlank(false);
+    cpu_.exec(325);
+    ppu_.reloadAddr(); // if(isRenderingOn()) v = t
+    // TODO: ここで以下のコード実行
+    //   spork = numsprites = 0;
+    //   ResetRL(XBuf);
+    cpu_.exec(oddFrame_ ? 15 : 16);
+    oddFrame_ ^= 1;
+
+    // line 0-239
+    // TODO: ここでframeskip時にspr_overを1にしてるが…
+    for(int line = 0; line < 240; ++line){
+        // TODO: FCEUXの DoLine() と同じにする
+        ppu_.startLine();
+        ppu_.doLine(line, screen_.data() + 256*line);
+        cpu_.exec(341);
+        ppu_.endLine();
+    }
+
+    apu_.endFrame();
+
+#if 0
     ppu_.startFrame();
     apu_.startFrame();
 
@@ -195,6 +238,7 @@ void Nes::emulateFrame()
     }
 
     apu_.endFrame();
+#endif
 }
 
 const uint8_t* Nes::screen() const

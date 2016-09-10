@@ -147,6 +147,7 @@ private:
     Apu apu_;
 
     int ppuWarmup_;
+    bool oddFrame_;
 
     using Reader = std::uint8_t (Nes::*)(std::uint16_t);
     using Writer = void (Nes::*)(std::uint16_t, std::uint8_t);
