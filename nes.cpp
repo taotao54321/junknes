@@ -210,10 +210,13 @@ void Nes::emulateFrame()
     // TODO: ここでframeskip時にspr_overを1にしてるが…
     for(int line = 0; line < 240; ++line){
         // TODO: FCEUXの DoLine() と同じにする
+        
+#if 1
         ppu_.startLine();
         ppu_.doLine(line, screen_.data() + 256*line);
         cpu_.exec(341);
         ppu_.endLine();
+#endif
     }
 
     apu_.endFrame();

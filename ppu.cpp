@@ -203,16 +203,23 @@ void Ppu::write2003(uint8_t value)
 {
     genLatch_ = value;
 
-    // とりあえず素朴に実装(FCEUXのコードが理解できてない)
-    oamAddr_ = value;
+    oamAddr_   = value;
+    oamAddrLo_ = value & 7;
 }
 
 void Ppu::write2004(uint8_t value)
 {
     genLatch_ = value;
 
-    // とりあえず素朴に実装(FCEUXのコードが理解できてない)
-    oam_[oamAddr_++] = value;
+    if(oamAddrLo_ < 8){
+        oam_[oamAddrLo_] = value;
+    }
+    else{
+        if(oamAddr_ >= 8) oam_[oamAddr_] = value;
+    }
+
+    ++oamAddr_;
+    ++oamAddrLo_;
 }
 
 void Ppu::write2005(uint8_t value)
