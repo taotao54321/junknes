@@ -168,7 +168,7 @@ namespace{
         size_t n_pop = audio_queue.pop(p, n_sample);
         if(n_pop < n_sample){
             INFO("UNDERFLOW: %lu samples\n", n_sample - n_pop);
-            fill_n(p+n_pop, 0, n_sample-n_pop);
+            fill_n(p+n_pop, n_sample-n_pop, 0);
         }
     }
 
